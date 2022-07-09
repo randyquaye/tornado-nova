@@ -11,9 +11,11 @@ class Utxo {
    * @param {Keypair} keypair
    * @param {number|null} index UTXO index in the merkle tree
    */
-  constructor({ amount = 0, keypair = new Keypair(), blinding = randomBN(), index = null } = {}) {
+  constructor({ amount = 0, type = randomBN(), keypair = new Keypair(), blinding = randomBN(), rand = randomBN(), index = null } = {}) {
     this.amount = BigNumber.from(amount)
     this.blinding = BigNumber.from(blinding)
+    this.type = BigNumber.from(type)
+    this.rand = BigNumber.from(rand)
     this.keypair = keypair
     this.index = index
   }
@@ -25,7 +27,9 @@ class Utxo {
    */
   getCommitment() {
     if (!this._commitment) {
-      this._commitment = poseidonHash([this.amount, this.keypair.pubkey, this.blinding])
+      let temp  = poseidonHash([this.keypair.pubkey, this.blinding])
+      this._commitment = poseidonHash([temp, this.amount, this.type, this.rand])
+
     }
     return this._commitment
   }
@@ -58,7 +62,7 @@ class Utxo {
    * @returns {string} `0x`-prefixed hex string with data
    */
   encrypt() {
-    const bytes = Buffer.concat([toBuffer(this.amount, 31), toBuffer(this.blinding, 31)])
+    const bytes = Buffer.concat([toBuffer(this.amount, 31), toBuffer(this.blinding, 31),toBuffer(this.type, 31), toBuffer(this.rand, 31)])
     return this.keypair.encrypt(bytes)
   }
 
@@ -74,7 +78,9 @@ class Utxo {
     const buf = keypair.decrypt(data)
     return new Utxo({
       amount: BigNumber.from('0x' + buf.slice(0, 31).toString('hex')),
+      type: BigNumber.from('0x' + buf.slice(62, 93).toString('hex')),
       blinding: BigNumber.from('0x' + buf.slice(31, 62).toString('hex')),
+      rand: BigNumber.from('0x' + buf.slice(93, 124).toString('hex')),
       keypair,
       index,
     })

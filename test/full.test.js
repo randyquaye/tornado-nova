@@ -538,6 +538,7 @@ describe('TornadoPool', function () {
     })
   })
 
+  
   it('should be compliant', async function () {
     // basically verifier should check if a commitment and a nullifier hash are on chain
     const { tornadoPool } = await loadFixture(fixture)
@@ -570,11 +571,13 @@ describe('TornadoPool', function () {
 
     // commitment = hash(amount, pubKey, blinding)
     // nullifier = hash(commitment, merklePath, sign(merklePath, privKey))
+    let temp  = poseidonHash([aliceDepositUtxo.keypair.pubkey, aliceDepositUtxo.blinding])
     const dataForVerifier = {
       commitment: {
+        comm: temp,
         amount: aliceDepositUtxo.amount,
-        pubkey: aliceDepositUtxo.keypair.pubkey,
-        blinding: aliceDepositUtxo.blinding,
+        type: aliceDepositUtxo.type,
+        rand: aliceDepositUtxo.rand,
       },
       nullifier: {
         commitment,
@@ -601,3 +604,4 @@ describe('TornadoPool', function () {
     // and the tx with NewNullifier event is where alice spent the UTXO
   })
 })
+

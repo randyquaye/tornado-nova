@@ -70,6 +70,8 @@ async function getProof({
     inAmount: inputs.map((x) => x.amount),
     inPrivateKey: inputs.map((x) => x.keypair.privkey),
     inBlinding: inputs.map((x) => x.blinding),
+    inType: inputs.map((x) => x.type),
+    inRand: inputs.map((x) => x.rand),
     inPathIndices: inputMerklePathIndices,
     inPathElements: inputMerklePathElements,
 
@@ -77,6 +79,8 @@ async function getProof({
     outAmount: outputs.map((x) => x.amount),
     outBlinding: outputs.map((x) => x.blinding),
     outPubkey: outputs.map((x) => x.keypair.pubkey),
+    outType: outputs.map((x) => x.type),
+    outRand: outputs.map((x) => x.rand),
   }
 
   const proof = await prove(input, `./artifacts/circuits/transaction${inputs.length}`)
@@ -110,12 +114,14 @@ async function prepareTransaction({
   if (inputs.length > 16 || outputs.length > 2) {
     throw new Error('Incorrect inputs/outputs count')
   }
+  
   while (inputs.length !== 2 && inputs.length < 16) {
     inputs.push(new Utxo())
   }
   while (outputs.length < 2) {
     outputs.push(new Utxo())
   }
+
 
   let extAmount = BigNumber.from(fee)
     .add(outputs.reduce((sum, x) => sum.add(x.amount), BigNumber.from(0)))
@@ -141,7 +147,7 @@ async function prepareTransaction({
 
 async function transaction({ tornadoPool, ...rest }) {
   const { args, extData } = await prepareTransaction({
-    tornadoPool,
+    tornadoPool, 
     ...rest,
   })
 

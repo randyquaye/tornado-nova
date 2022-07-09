@@ -53,7 +53,7 @@ const config = {
   networks: {
     hardhat: {
       forking: {
-        url: `https://eth-mainnet.alchemyapi.io/v2/${process.env.ALCHEMY_KEY}`,
+        url: `https://eth-mainnet.g.alchemy.com/v2/2aLHKzJUjNEArwX1YjjB9nWHQH1ptPxw`,
         blockNumber: 13685625,
       },
       chainId: 1,
@@ -71,7 +71,7 @@ const config = {
           },
     },
     xdai: {
-      url: process.env.ETH_RPC || 'https://rpc.xdaichain.com/',
+      url: 'https://eth-mainnet.g.alchemy.com/v2/2aLHKzJUjNEArwX1YjjB9nWHQH1ptPxw',
       accounts: process.env.PRIVATE_KEY
         ? [process.env.PRIVATE_KEY]
         : {
@@ -80,7 +80,7 @@ const config = {
       gasPrice: 25000000000,
     },
     bsc: {
-      url: process.env.ETH_RPC || 'https://bsc-dataseed.binance.org/',
+      url: 'https://eth-mainnet.g.alchemy.com/v2/2aLHKzJUjNEArwX1YjjB9nWHQH1ptPxw',
       accounts: process.env.PRIVATE_KEY
         ? [process.env.PRIVATE_KEY]
         : {
@@ -88,7 +88,7 @@ const config = {
           },
     },
     mainnet: {
-      url: `https://eth-mainnet.alchemyapi.io/v2/${process.env.ALCHEMY_KEY}`,
+      url: `https://eth-mainnet.g.alchemy.com/v2/2aLHKzJUjNEArwX1YjjB9nWHQH1ptPxw`,
       accounts: process.env.PRIVATE_KEY
         ? [process.env.PRIVATE_KEY]
         : {

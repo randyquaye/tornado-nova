@@ -28,6 +28,8 @@ template Transaction(levels, nIns, nOuts, zeroLeaf) {
     signal private input inAmount[nIns];
     signal private input inPrivateKey[nIns];
     signal private input inBlinding[nIns];
+    signal private input inType[nIns];
+    signal private input inRand[nIns];
     signal private input inPathIndices[nIns];
     signal private input inPathElements[nIns][levels];
 
@@ -36,10 +38,13 @@ template Transaction(levels, nIns, nOuts, zeroLeaf) {
     signal private input outAmount[nOuts];
     signal private input outPubkey[nOuts];
     signal private input outBlinding[nOuts];
+    signal private input outType[nIns];
+    signal private input outRand[nIns];
 
     component inKeypair[nIns];
     component inSignature[nIns];
     component inCommitmentHasher[nIns];
+    component inCommitmentHasherB[nIns];
     component inNullifierHasher[nIns];
     component inTree[nIns];
     component inCheckRoot[nIns];
@@ -50,10 +55,16 @@ template Transaction(levels, nIns, nOuts, zeroLeaf) {
         inKeypair[tx] = Keypair();
         inKeypair[tx].privateKey <== inPrivateKey[tx];
 
-        inCommitmentHasher[tx] = Poseidon(3);
-        inCommitmentHasher[tx].inputs[0] <== inAmount[tx];
-        inCommitmentHasher[tx].inputs[1] <== inKeypair[tx].publicKey;
-        inCommitmentHasher[tx].inputs[2] <== inBlinding[tx];
+        inCommitmentHasherB[tx] = Poseidon(2);
+        inCommitmentHasherB[tx].inputs[0] <== inKeypair[tx].publicKey;
+        inCommitmentHasherB[tx].inputs[1] <== inBlinding[tx];
+        //THIS IS THE POINT OF CREATING THE ORIGINAL COMMITMENT
+
+        inCommitmentHasher[tx] = Poseidon(4);
+        inCommitmentHasher[tx].inputs[0] <== inCommitmentHasherB[tx].out;
+        inCommitmentHasher[tx].inputs[1] <== inAmount[tx];
+        inCommitmentHasher[tx].inputs[2] <== inType[tx];
+        inCommitmentHasher[tx].inputs[3] <== inRand[tx];
 
         inSignature[tx] = Signature();
         inSignature[tx].privateKey <== inPrivateKey[tx];
@@ -86,16 +97,23 @@ template Transaction(levels, nIns, nOuts, zeroLeaf) {
         sumIns += inAmount[tx];
     }
 
+    component outCommitmentHasherB[nOuts];
     component outCommitmentHasher[nOuts];
     component outAmountCheck[nOuts];
     var sumOuts = 0;
 
     // verify correctness of transaction outputs
     for (var tx = 0; tx < nOuts; tx++) {
-        outCommitmentHasher[tx] = Poseidon(3);
-        outCommitmentHasher[tx].inputs[0] <== outAmount[tx];
-        outCommitmentHasher[tx].inputs[1] <== outPubkey[tx];
-        outCommitmentHasher[tx].inputs[2] <== outBlinding[tx];
+
+        outCommitmentHasherB[tx] = Poseidon(2);
+        outCommitmentHasherB[tx].inputs[0] <== outPubkey[tx];
+        outCommitmentHasherB[tx].inputs[1] <== outBlinding[tx];
+
+        outCommitmentHasher[tx] = Poseidon(4);
+        outCommitmentHasher[tx].inputs[0] <== outCommitmentHasherB[tx].out;
+        outCommitmentHasher[tx].inputs[1] <== outAmount[tx];
+        outCommitmentHasher[tx].inputs[2] <== outType[tx];
+        outCommitmentHasher[tx].inputs[3] <== outRand[tx];
         outCommitmentHasher[tx].out === outputCommitment[tx];
 
         // Check that amount fits into 248 bits to prevent overflow
