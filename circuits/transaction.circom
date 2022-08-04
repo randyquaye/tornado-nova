@@ -136,6 +136,8 @@ template Transaction(levels, nIns, nOuts, zeroLeaf) {
       }
     }
 
+    //TODO:check that all inputs and output have type equal to type in extData
+
     // verify amount invariant
     sumIns + publicAmount === sumOuts;
 

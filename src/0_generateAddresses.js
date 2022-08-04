@@ -25,11 +25,11 @@ async function generate(config = defaultConfig) {
         config.MERKLE_TREE_HEIGHT,
         config.hasher,
         config.hasher4,
-        config.gcWeth,
-        config.gcOmniBridge,
-        config.l1Unwrapper,
-        config.govAddress,
-        config.l1ChainId,
+        // config.gcWeth,
+        // config.gcOmniBridge,
+        // config.l1Unwrapper,
+        // config.govAddress,
+        // config.l1ChainId,
         config.gcMultisig,
       ])
       .slice(2)

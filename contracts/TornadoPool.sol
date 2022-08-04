@@ -38,10 +38,9 @@ contract TornadoPool is MerkleTreeWithHistory, ReentrancyGuard {
   // This example swaps DAI/WETH9 for single path swaps and DAI/USDC/WETH9 for multi path swaps.
   address public constant DAI = 0x6B175474E89094C44Da98b954EedeAC495271d0F;
   address public constant WETH9 = 0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2;
+  address public constant WETH = 0x1c85638e118b37167e9298c2268758e058DdfDA0;
 
-  mapping(address => bool) public tokens;
-  tokens[0x6B175474E89094C44Da98b954EedeAC495271d0F] = true;
-  tokens[0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2] = true;
+  
 
   ISwapRouter public constant swapRouter = ISwapRouter(0xE592427A0AEce92De3Edee1F18E0157C05861564);
   IVerifier public immutable verifier2;
@@ -49,15 +48,15 @@ contract TornadoPool is MerkleTreeWithHistory, ReentrancyGuard {
   
   // address public immutable omniBridge;
   // address public immutable l1Unwrapper;
-  // address public immutable multisig;
-  // IHasher public immutable hasher;
+  address public immutable multisig;
   
-  uint256 private _amountOut; //for swaps
+  // uint256 private _amountOut; //for swaps
 
   mapping(address => uint256) public lastBalance; 
   uint256 public __gap; // storage padding to prevent storage collision
   uint256 public maximumDepositAmount;
   mapping(bytes32 => bool) public nullifierHashes;
+  mapping(address => bool) public tokens;
 
   struct ExtData {
     address recipient;
@@ -68,9 +67,9 @@ contract TornadoPool is MerkleTreeWithHistory, ReentrancyGuard {
     bytes encryptedOutput2;
     bool isSwap;
     address tokenType;
-    bytes32 r1;
-    bytes32 r2;
-    bytes32 pubKey;
+    // bytes32 r1;
+    // bytes32 r2;
+    // bytes32 pubKey;
   }
 
   struct Proof {
@@ -81,7 +80,6 @@ contract TornadoPool is MerkleTreeWithHistory, ReentrancyGuard {
     uint256 publicAmount;
     bytes32 extDataHash;
   }
-
 
   struct Account {
     address owner;
@@ -111,10 +109,6 @@ contract TornadoPool is MerkleTreeWithHistory, ReentrancyGuard {
     @param _levels hight of the commitments merkle tree
     @param _hasher hasher address for the merkle tree
     @param _hasher4 4 input hasher
-    @param _omniBridge omniBridge address for specified token
-    @param _l1Unwrapper address of the L1Helper
-    @param _governance owner address
-    @param _l1ChainId chain id of L1
     @param _multisig multisig on L2
     
   */
@@ -124,10 +118,10 @@ contract TornadoPool is MerkleTreeWithHistory, ReentrancyGuard {
     uint32 _levels,
     address _hasher,
     address _hasher4,
-    address _omniBridge,
-    address _l1Unwrapper,
-    address _governance,
-    uint256 _l1ChainId,
+    // address _omniBridge,
+    // address _l1Unwrapper,
+    // address _governance,
+    // uint256 _l1ChainId,
     address _multisig
   )
     MerkleTreeWithHistory(_levels, _hasher,_hasher4)
@@ -138,11 +132,15 @@ contract TornadoPool is MerkleTreeWithHistory, ReentrancyGuard {
     // omniBridge = _omniBridge;
     // l1Unwrapper = _l1Unwrapper;
     multisig = _multisig;
+    
   }
 
   function initialize(uint256 _maximumDepositAmount) external initializer {
     _configureLimits(_maximumDepositAmount);
     super._initialize();
+    tokens[DAI] = true;
+    tokens[WETH] = true;
+    tokens[WETH9] = true;
   }
 
   /** @dev Main function that allows deposits, transfers and withdrawal.
@@ -150,10 +148,9 @@ contract TornadoPool is MerkleTreeWithHistory, ReentrancyGuard {
   function transact(Proof memory _args, ExtData memory _extData) public {
     if (_extData.extAmount > 0) {
 
-      
         // for deposits
         require(tokens[_extData.tokenType],"token not supported");
-        _extData.tokenType.transferFrom(msg.sender, address(this), uint256(_extData.extAmount));
+        IERC20(_extData.tokenType).transferFrom(msg.sender, address(this), uint256(_extData.extAmount));
         require(uint256(_extData.extAmount) <= maximumDepositAmount, "amount is larger than maximumDepositAmount");
       
     }
@@ -201,24 +198,24 @@ contract TornadoPool is MerkleTreeWithHistory, ReentrancyGuard {
 
   /// @dev Method to claim junk and accidentally sent tokens
   function rescueTokens(
-    IERC6777 _token,
+    address _token,
     address payable _to,
     uint256 _balance
   ) external onlyMultisig {
     require(_to != address(0), "TORN: can not send to zero address");
-    require(_token != token, "can not rescue pool asset");
+    require(!tokens[_token], "can not rescue pool asset");
 
-    if (_token == IERC6777(0)) {
+    if (IERC20(_token) == IERC20(0)) {
       // for Ether
       uint256 totalBalance = address(this).balance;
       uint256 balance = _balance == 0 ? totalBalance : _balance;
       _to.transfer(balance);
     } else {
       // any other erc20
-      uint256 totalBalance = _token.balanceOf(address(this));
+      uint256 totalBalance = IERC20(_token).balanceOf(address(this));
       uint256 balance = _balance == 0 ? totalBalance : _balance;
       require(balance > 0, "TORN: trying to send 0 balance");
-      _token.transfer(_to, balance);
+      IERC20(_token).transfer(_to, balance);
     }
   }
 
@@ -284,10 +281,10 @@ contract TornadoPool is MerkleTreeWithHistory, ReentrancyGuard {
     //withdraw to provided recepients
     if (_extData.extAmount < 0 && !_extData.isSwap) {
       require(_extData.recipient != address(0), "Can't withdraw to zero address");
-      token.transfer(_extData.recipient, uint256(-_extData.extAmount));
+      IERC20(_extData.tokenType).transfer(_extData.recipient, uint256(-_extData.extAmount));
     }
     if (_extData.fee > 0) {
-      token.transfer(_extData.relayer, _extData.fee);
+      IERC20(_extData.tokenType).transfer(_extData.relayer, _extData.fee);
     }
     
 
@@ -333,8 +330,7 @@ contract TornadoPool is MerkleTreeWithHistory, ReentrancyGuard {
     @param amountIn The exact amount of tokenIn that will be swapped for DAI.
     @return amountOut The amount of WETH9 received.
   */
-    function swapExactInputSingle(address tokenOut, uint256 amountIn) public  returns (uint256 amountOut) {
-        address tokenIn = address(token);
+    function swapExactInputSingle(address tokenIn, address tokenOut, uint256 amountIn) public  returns (uint256 amountOut) {
         // // msg.sender must approve this contract
         // IERC20(token).approve(address(this), amountIn);
 
@@ -377,7 +373,7 @@ contract TornadoPool is MerkleTreeWithHistory, ReentrancyGuard {
       outputs[2] = bytes32(uint256(uint160(tokenOut)));
       outputs[3] = rand;
 
-      emit SwapCommitment(blinding, rand,pubkey, bytes32(_amountOut), bytes32(uint256(uint160(tokenOut))),anonaddress);
+      emit SwapCommitment(blinding, rand,pubkey, bytes32(amountOut), bytes32(uint256(uint160(tokenOut))),anonaddress);
 
       return hasher4.poseidon(outputs);
 

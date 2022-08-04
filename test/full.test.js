@@ -16,8 +16,10 @@ const { BigNumber } = require('ethers')
 const MERKLE_TREE_HEIGHT = 5
 const l1ChainId = 1
 const MAXIMUM_DEPOSIT_AMOUNT = utils.parseEther(process.env.MAXIMUM_DEPOSIT_AMOUNT || '1')
+
 const DAI = "0x6B175474E89094C44Da98b954EedeAC495271d0F"
 const WETH9 = "0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2"
+
 describe('TornadoPool', function () {
   this.timeout(20000)
 
@@ -64,16 +66,14 @@ describe('TornadoPool', function () {
       MERKLE_TREE_HEIGHT,
       hasher.address,
       hasher4.address,
-      token.address,
-      omniBridge.address,
-      l1Unwrapper.address,
-      gov.address,
-      l1ChainId,
+      // omniBridge.address,
+      // l1Unwrapper.address,
+      // gov.address,
+      // l1ChainId,
       multisig.address
     )
 
     
-
     const { data } = await tornadoPoolImpl.populateTransaction.initialize(MAXIMUM_DEPOSIT_AMOUNT)
     const proxy = await deploy(
       'CrossChainUpgradeableProxy',
@@ -87,50 +87,66 @@ describe('TornadoPool', function () {
     const tornadoPool = tornadoPoolImpl.attach(proxy.address)
 
 
-    await token.approve(tornadoPool.address, utils.parseEther('10000'))
+    await l1Token.approve(tornadoPool.address, utils.parseEther('10000'))
 
     return { tornadoPool, token, proxy, omniBridge, amb, gov, multisig, l1Unwrapper, sender, l1Token }
   }
 
   it('should deposit, transact and withdraw', async function () {
-    const { tornadoPool, token } = await loadFixture(fixture)
+    const { tornadoPool, token, l1Token } = await loadFixture(fixture)
 
     // Alice deposits into tornado pool
     const aliceKeypair = new Keypair() // contains private and public keys
     const aliceDepositAmount = utils.parseEther('0.1')
-    const aliceDepositUtxo = new Utxo({ amount: aliceDepositAmount, keypair:aliceKeypair, type: WETH9 })
+    const aliceDepositUtxo = new Utxo({ amount: aliceDepositAmount, keypair:aliceKeypair, type: l1Token.address })
     await transaction({ tornadoPool, outputs: [aliceDepositUtxo] })
 
-    // Alice wants to swap token to tokenout(DAI)
-    const tokenOut = DAI
-    await transaction({tornadoPool, inputs:[aliceDepositUtxo], isSwap: true})
 
-    //Alice parses chain to detect swap
-    const swapFilter = tornadoPool.filters.SwapCommitment()
-    const swapBlock = await ethers.provider.getBlock()
-    const swapEvent = await tornadoPool.queryFilter(swapFilter, swapBlock.number)
-    let swapOutputUtxo
-    try {
-      swapOutputUtxo = new Utxo({amount: swapEvent[0].args.amountOut, blinding: swapEvent[0].args.r1, 
-                                    rand: swapEvent[0].args.r2,type:swapEvent[0].args.tokenOut, keypair:aliceKeypair })
-    } catch (e) {
-      console.log("No swap found");
-    }
-
-
-    // Bob gives Alice address to send some eth inside the shielded pool
-    const bobKeypair = new Keypair() // contains private and public keys
-    const bobAddress = bobKeypair.address() // contains only public key
-
-    // Alice sends some tokenOut funds to Bob
-    const bobSendAmount = utils.parseEther('0.02')
-    const bobSendUtxo = new Utxo({ amount: bobSendAmount, keypair: Keypair.fromString(bobAddress), type: tokenOut })
+    // Alice withdraws a part of his funds from the shielded pool
+    const aliceWithdrawAmount = utils.parseEther('0.05')
+    const aliceEthAddress = '0xDeaD00000000000000000000000000000000BEEf'
     const aliceChangeUtxo = new Utxo({
-      amount: swapOutputUtxo.amount.sub(bobSendAmount),
-      keypair: swapOutputUtxo.keypair,
-      type: tokenOut
+      type: l1Token.address,
+      amount: aliceDepositAmount.sub(aliceWithdrawAmount),
+      keypair: aliceKeypair,
     })
-     await transaction({ tornadoPool, inputs: [swapOutputUtxo], outputs: [bobSendUtxo, aliceChangeUtxo] })
+    await transaction({
+      tornadoPool,
+      inputs: [aliceDepositUtxo],
+      outputs: [aliceChangeUtxo],
+      recipient: aliceEthAddress,
+    })
+
+    // // Alice wants to swap token to tokenout(DAI)
+    // const tokenOut = DAI
+    // await transaction({tornadoPool, inputs:[aliceDepositUtxo], isSwap: true})
+
+    // //Alice parses chain to detect swap
+    // const swapFilter = tornadoPool.filters.SwapCommitment()
+    // const swapBlock = await ethers.provider.getBlock()
+    // const swapEvent = await tornadoPool.queryFilter(swapFilter, swapBlock.number)
+    // let swapOutputUtxo
+    // try {
+    //   swapOutputUtxo = new Utxo({amount: swapEvent[0].args.amountOut, blinding: swapEvent[0].args.r1, 
+    //                                 rand: swapEvent[0].args.r2,type:swapEvent[0].args.tokenOut, keypair:aliceKeypair })
+    // } catch (e) {
+    //   console.log("No swap found");
+    // }
+
+
+    // // Bob gives Alice address to send some eth inside the shielded pool
+    // const bobKeypair = new Keypair() // contains private and public keys
+    // const bobAddress = bobKeypair.address() // contains only public key
+
+    // // Alice sends some tokenOut funds to Bob
+    // const bobSendAmount = utils.parseEther('0.02')
+    // const bobSendUtxo = new Utxo({ amount: bobSendAmount, keypair: Keypair.fromString(bobAddress), type: tokenOut })
+    // const aliceChangeUtxo = new Utxo({
+    //   amount: swapOutputUtxo.amount.sub(bobSendAmount),
+    //   keypair: swapOutputUtxo.keypair,
+    //   type: tokenOut
+    // })
+    //  await transaction({ tornadoPool, inputs: [swapOutputUtxo], outputs: [bobSendUtxo, aliceChangeUtxo] })
 
   })
 

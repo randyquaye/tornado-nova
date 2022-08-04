@@ -19,7 +19,6 @@ class Utxo {
     this.rand = BigNumber.from(rand)
     this.keypair = keypair
     this.index = index
-    console.log(this.blinding)
   }
 
   /**

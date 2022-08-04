@@ -8,6 +8,9 @@ const Utxo = require('./utxo')
 const { prove } = require('./prover')
 const MERKLE_TREE_HEIGHT = 5
 
+const DAI = '0x6B175474E89094C44Da98b954EedeAC495271d0F'
+const WETH9 = '0x1c85638e118b37167e9298c2268758e058DdfDA0'
+
 async function buildMerkleTree({ tornadoPool }) {
   const filter = tornadoPool.filters.NewCommitment()
   const events = await tornadoPool.queryFilter(filter, 0)
@@ -27,20 +30,20 @@ async function getProof({
   recipient,
   relayer,
   isSwap,
-  isL1Withdrawal,
-  l1Fee,
+  tokenType,
+  // isL1Withdrawal,
+  // l1Fee,
 }) {
 
 
-  const r1 =  randomBN()
-  const r2 =  randomBN()
-  const pubKey = inputs[0].keypair.pubkey
+  // const r1 =  randomBN()
+  // const r2 =  randomBN()
+  // const pubKey = inputs[0].keypair.pubkey
 
 
   inputs = shuffle(inputs)
   outputs = shuffle(outputs)
 
-  
 
   let inputMerklePathIndices = []
   let inputMerklePathElements = []
@@ -70,12 +73,12 @@ async function getProof({
     encryptedOutput1: outputs[0].encrypt(),
     encryptedOutput2: outputs[1].encrypt(),
     isSwap,
-    tokenType,
-    r1: toFixedHex(r1),
-    r2: toFixedHex(r2),
-    pubKey: toFixedHex(pubKey),
-    isL1Withdrawal,
-    l1Fee,
+    tokenType: toFixedHex(tokenType, 20),
+    // r1: toFixedHex(r1),
+    // r2: toFixedHex(r2),
+    // pubKey: toFixedHex(pubKey),
+    // isL1Withdrawal,
+    // l1Fee,
   }
 
 
@@ -130,18 +133,19 @@ async function prepareTransaction({
   recipient = 0,
   relayer = 0,
   isSwap = false,
-  isL1Withdrawal = false,
-  l1Fee = 0,
+  tokenType = WETH9,
+  // isL1Withdrawal = false,
+  // l1Fee = 0,
 }) {
-  if (inputs.length > 16 || outputs.length > 2) {
+  if (inputs.length > 2 || outputs.length > 2) {
     throw new Error('Incorrect inputs/outputs count')
   }
   
-  while (inputs.length !== 2 && inputs.length < 16) {
-    inputs.push(new Utxo())
+  while (inputs.length !== 2) {
+    inputs.push(new Utxo({type:tokenType}))
   }
   while (outputs.length < 2) {
-    outputs.push(new Utxo())
+    outputs.push(new Utxo(({type:tokenType})))
   }
 
 
@@ -158,8 +162,9 @@ async function prepareTransaction({
     recipient,
     relayer,
     isSwap,
-    isL1Withdrawal,
-    l1Fee,
+    tokenType
+    // isL1Withdrawal,
+    // l1Fee,
   })
 
   return {
