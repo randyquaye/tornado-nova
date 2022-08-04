@@ -1,1 +1,1 @@
-../artifacts/circuits/Verifier16.sol
+../client/src/artifacts/circuits/Verifier16.sol

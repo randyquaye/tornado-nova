@@ -8,12 +8,12 @@
   },
   "scripts": {
     "circuit": "./scripts/buildCircuit.sh 2 && ./scripts/buildCircuit.sh 16",
-    "circuit_prod": "rm -rf ./artifacts/circuits && yarn changeTreeHeight 23 && ./scripts/buildCircuit_prod.sh 2 && ./scripts/buildCircuit_prod.sh 16 && tar -czvf artifacts/circuits.tar.gz artifacts/circuits",
+    "circuit_prod": "rm -rf ./artifacts/circuits && yarn changeTreeHeight 23 && ./scripts/buildCircuit_prod.sh 2 && ./scripts/buildCircuit_prod.sh 16 && tar -czvf client/src/artifacts/circuits.tar.gz client/src/artifacts/circuits",
     "changeTreeHeight": "./scripts/changeTreeHeight.sh",
     "compile:hasher": "npx hardhat hasher",
     "compile": "npx hardhat compile && yarn compile:hasher",
     "build": "npm run circuit && npm run compile",
-    "deploy": "npx hardhat run scripts/deploy.js --network optimism",
+    "deploy": "npx hardhat run scripts/deployTornado.js --network hardhat && npx hardhat run scripts/deployL1Unwrapper.js --network hardhat",
     "test": "npx hardhat test",
     "eslint": "eslint --ext .js --ignore-path .gitignore .",
     "prettier:check": "prettier --check . --config .prettierrc",
@@ -30,6 +30,9 @@
     "@openzeppelin/contracts-upgradeable": "3.4.2",
     "@typechain/ethers-v5": "^7.0.1",
     "@typechain/hardhat": "^2.3.0",
+    "@uniswap/swap-router-contracts": "^1.2.1",
+    "@uniswap/v3-periphery": "^1.4.1",
+    "@zk-kit/incremental-merkle-tree.sol": "^1.1.0",
     "bignumber.js": "^9.0.0",
     "chai": "^4.3.4",
     "circom": "^0.5.45",
@@ -51,7 +54,7 @@
     "typechain": "^5.1.2"
   },
   "devDependencies": {
-    "@nomiclabs/hardhat-etherscan": "^2.1.8",
+    "@nomiclabs/hardhat-etherscan": "^3.1.0",
     "babel-eslint": "^10.1.0",
     "eslint": "^7.28.0",
     "eslint-config-prettier": "^8.3.0",

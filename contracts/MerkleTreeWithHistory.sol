@@ -13,9 +13,14 @@
 pragma solidity ^0.7.0;
 
 import "@openzeppelin/contracts-upgradeable/proxy/Initializable.sol";
+import "hardhat/console.sol";
 
 interface IHasher {
   function poseidon(bytes32[2] calldata inputs) external pure returns (bytes32);
+}
+
+interface IHasher4 {
+  function poseidon(bytes32[4] calldata inputs) external pure returns (bytes32);
 }
 
 contract MerkleTreeWithHistory is Initializable {
@@ -23,6 +28,7 @@ contract MerkleTreeWithHistory is Initializable {
   uint256 public constant ZERO_VALUE = 21663839004416932945382355908790599225266501822907911457504978515578255421292; // = keccak256("tornado") % FIELD_SIZE
 
   IHasher public immutable hasher;
+  IHasher4 public immutable hasher4;
   uint32 public immutable levels;
 
   // the following variables are made public for easier testing and debugging and
@@ -36,11 +42,12 @@ contract MerkleTreeWithHistory is Initializable {
   uint32 public currentRootIndex = 0; // todo remove
   uint32 public nextIndex = 0;
 
-  constructor(uint32 _levels, address _hasher) {
+  constructor(uint32 _levels, address _hasher, address _hasher4) {
     require(_levels > 0, "_levels should be greater than zero");
     require(_levels < 32, "_levels should be less than 32");
     levels = _levels;
     hasher = IHasher(_hasher);
+    hasher4  = IHasher4(_hasher4);
   }
 
   function _initialize() internal {
@@ -71,7 +78,6 @@ contract MerkleTreeWithHistory is Initializable {
     bytes32 currentLevelHash = hashLeftRight(_leaf1, _leaf2);
     bytes32 left;
     bytes32 right;
-
     for (uint32 i = 1; i < levels; i++) {
       if (currentIndex % 2 == 0) {
         left = currentLevelHash;

@@ -50,10 +50,13 @@ const config = {
       },
     ],
   },
+  paths:{
+    artifacts: './client/src/artifacts'
+  },
   networks: {
     hardhat: {
       forking: {
-        url: `https://eth-mainnet.g.alchemy.com/v2/2aLHKzJUjNEArwX1YjjB9nWHQH1ptPxw`,
+        url: `https://eth-mainnet.alchemyapi.io/v2/${process.env.ALCHEMY_KEY}`,
         blockNumber: 13685625,
       },
       chainId: 1,
@@ -64,14 +67,10 @@ const config = {
     },
     rinkeby: {
       url: `https://rinkeby.infura.io/v3/${process.env.INFURA_API_KEY}`,
-      accounts: process.env.PRIVATE_KEY
-        ? [process.env.PRIVATE_KEY]
-        : {
-            mnemonic: 'test test test test test test test test test test test junk',
-          },
+      accounts:[`${process.env.PRIVATE_KEY}`]
     },
     xdai: {
-      url: 'https://eth-mainnet.g.alchemy.com/v2/2aLHKzJUjNEArwX1YjjB9nWHQH1ptPxw',
+      url: `https://eth-mainnet.alchemyapi.io/v2/${process.env.ALCHEMY_KEY}`,
       accounts: process.env.PRIVATE_KEY
         ? [process.env.PRIVATE_KEY]
         : {
@@ -80,7 +79,7 @@ const config = {
       gasPrice: 25000000000,
     },
     bsc: {
-      url: 'https://eth-mainnet.g.alchemy.com/v2/2aLHKzJUjNEArwX1YjjB9nWHQH1ptPxw',
+      url: `https://eth-mainnet.alchemyapi.io/v2/${process.env.ALCHEMY_KEY}`,
       accounts: process.env.PRIVATE_KEY
         ? [process.env.PRIVATE_KEY]
         : {
@@ -88,7 +87,7 @@ const config = {
           },
     },
     mainnet: {
-      url: `https://eth-mainnet.g.alchemy.com/v2/2aLHKzJUjNEArwX1YjjB9nWHQH1ptPxw`,
+      url: `https://eth-mainnet.alchemyapi.io/v2/${process.env.ALCHEMY_KEY}`,
       accounts: process.env.PRIVATE_KEY
         ? [process.env.PRIVATE_KEY]
         : {

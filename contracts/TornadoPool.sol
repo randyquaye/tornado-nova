@@ -14,27 +14,47 @@ pragma solidity ^0.7.0;
 pragma experimental ABIEncoderV2;
 
 import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
+import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import "@uniswap/v3-periphery/contracts/libraries/TransferHelper.sol";
+import "@uniswap/v3-periphery/contracts/interfaces/ISwapRouter.sol";
 import { IERC20Receiver, IERC6777, IOmniBridge } from "./interfaces/IBridge.sol";
 import { CrossChainGuard } from "./bridge/CrossChainGuard.sol";
 import { IVerifier } from "./interfaces/IVerifier.sol";
 import "./MerkleTreeWithHistory.sol";
+import "hardhat/console.sol";
+// import {PoseidonT6, PoseidonT3} from "@zk-kit/incremental-merkle-tree.sol/Hashes.sol";
+
+
 
 /** @dev This contract(pool) allows deposit of an arbitrary amount to it, shielded transfer to another registered user inside the pool
  * and withdrawal from the pool. Project utilizes UTXO model to handle users' funds.
  */
-contract TornadoPool is MerkleTreeWithHistory, IERC20Receiver, ReentrancyGuard, CrossChainGuard {
+// contract TornadoPool is MerkleTreeWithHistory, IERC20Receiver, ReentrancyGuard, CrossChainGuard {
+contract TornadoPool is MerkleTreeWithHistory, ReentrancyGuard {
   int256 public constant MAX_EXT_AMOUNT = 2**248;
   uint256 public constant MAX_FEE = 2**248;
   uint256 public constant MIN_EXT_AMOUNT_LIMIT = 0.5 ether;
 
+  // This example swaps DAI/WETH9 for single path swaps and DAI/USDC/WETH9 for multi path swaps.
+  address public constant DAI = 0x6B175474E89094C44Da98b954EedeAC495271d0F;
+  address public constant WETH9 = 0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2;
+
+  mapping(address => bool) public tokens;
+  tokens[0x6B175474E89094C44Da98b954EedeAC495271d0F] = true;
+  tokens[0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2] = true;
+
+  ISwapRouter public constant swapRouter = ISwapRouter(0xE592427A0AEce92De3Edee1F18E0157C05861564);
   IVerifier public immutable verifier2;
   IVerifier public immutable verifier16;
-  IERC6777 public immutable token;
-  address public immutable omniBridge;
-  address public immutable l1Unwrapper;
-  address public immutable multisig;
+  
+  // address public immutable omniBridge;
+  // address public immutable l1Unwrapper;
+  // address public immutable multisig;
+  // IHasher public immutable hasher;
+  
+  uint256 private _amountOut; //for swaps
 
-  uint256 public lastBalance;
+  mapping(address => uint256) public lastBalance; 
   uint256 public __gap; // storage padding to prevent storage collision
   uint256 public maximumDepositAmount;
   mapping(bytes32 => bool) public nullifierHashes;
@@ -46,8 +66,11 @@ contract TornadoPool is MerkleTreeWithHistory, IERC20Receiver, ReentrancyGuard, 
     uint256 fee;
     bytes encryptedOutput1;
     bytes encryptedOutput2;
-    bool isL1Withdrawal;
-    uint256 l1Fee;
+    bool isSwap;
+    address tokenType;
+    bytes32 r1;
+    bytes32 r2;
+    bytes32 pubKey;
   }
 
   struct Proof {
@@ -59,12 +82,20 @@ contract TornadoPool is MerkleTreeWithHistory, IERC20Receiver, ReentrancyGuard, 
     bytes32 extDataHash;
   }
 
+
   struct Account {
     address owner;
     bytes publicKey;
   }
 
+  struct SwapData{
+    bytes32 blinding;
+    bytes32 rand; 
+    bytes pubKey;
+  }
+
   event NewCommitment(bytes32 commitment, uint256 index, bytes encryptedOutput);
+  event SwapCommitment(bytes32 r1, bytes32 r2, bytes32 pubkey, bytes32 amountOut, bytes32 tokenOut, bytes32 comm);
   event NewNullifier(bytes32 nullifier);
   event PublicKey(address indexed owner, bytes key);
 
@@ -79,33 +110,33 @@ contract TornadoPool is MerkleTreeWithHistory, IERC20Receiver, ReentrancyGuard, 
     @param _verifier16 the address of SNARK verifier for 16 inputs
     @param _levels hight of the commitments merkle tree
     @param _hasher hasher address for the merkle tree
-    @param _token token address for the pool
+    @param _hasher4 4 input hasher
     @param _omniBridge omniBridge address for specified token
     @param _l1Unwrapper address of the L1Helper
     @param _governance owner address
     @param _l1ChainId chain id of L1
     @param _multisig multisig on L2
+    
   */
   constructor(
     IVerifier _verifier2,
     IVerifier _verifier16,
     uint32 _levels,
     address _hasher,
-    IERC6777 _token,
+    address _hasher4,
     address _omniBridge,
     address _l1Unwrapper,
     address _governance,
     uint256 _l1ChainId,
     address _multisig
   )
-    MerkleTreeWithHistory(_levels, _hasher)
-    CrossChainGuard(address(IOmniBridge(_omniBridge).bridgeContract()), _l1ChainId, _governance)
+    MerkleTreeWithHistory(_levels, _hasher,_hasher4)
+    // CrossChainGuard(address(IOmniBridge(_omniBridge).bridgeContract()), _l1ChainId, _governance)
   {
     verifier2 = _verifier2;
     verifier16 = _verifier16;
-    token = _token;
-    omniBridge = _omniBridge;
-    l1Unwrapper = _l1Unwrapper;
+    // omniBridge = _omniBridge;
+    // l1Unwrapper = _l1Unwrapper;
     multisig = _multisig;
   }
 
@@ -118,11 +149,14 @@ contract TornadoPool is MerkleTreeWithHistory, IERC20Receiver, ReentrancyGuard, 
    */
   function transact(Proof memory _args, ExtData memory _extData) public {
     if (_extData.extAmount > 0) {
-      // for deposits from L2
-      token.transferFrom(msg.sender, address(this), uint256(_extData.extAmount));
-      require(uint256(_extData.extAmount) <= maximumDepositAmount, "amount is larger than maximumDepositAmount");
-    }
 
+      
+        // for deposits
+        require(tokens[_extData.tokenType],"token not supported");
+        _extData.tokenType.transferFrom(msg.sender, address(this), uint256(_extData.extAmount));
+        require(uint256(_extData.extAmount) <= maximumDepositAmount, "amount is larger than maximumDepositAmount");
+      
+    }
     _transact(_args, _extData);
   }
 
@@ -140,30 +174,30 @@ contract TornadoPool is MerkleTreeWithHistory, IERC20Receiver, ReentrancyGuard, 
     transact(_proofArgs, _extData);
   }
 
-  function onTokenBridged(
-    IERC6777 _token,
-    uint256 _amount,
-    bytes calldata _data
-  ) external override {
-    (Proof memory _args, ExtData memory _extData) = abi.decode(_data, (Proof, ExtData));
-    require(_token == token, "provided token is not supported");
-    require(msg.sender == omniBridge, "only omni bridge");
-    require(_amount >= uint256(_extData.extAmount), "amount from bridge is incorrect");
-    require(token.balanceOf(address(this)) >= uint256(_extData.extAmount) + lastBalance, "bridge did not send enough tokens");
-    require(uint256(_extData.extAmount) <= maximumDepositAmount, "amount is larger than maximumDepositAmount");
-    uint256 sentAmount = token.balanceOf(address(this)) - lastBalance;
-    try TornadoPool(address(this)).onTransact(_args, _extData) {} catch (bytes memory) {
-      token.transfer(multisig, sentAmount);
-    }
-  }
+  // function onTokenBridged(
+  //   IERC6777 _token,
+  //   uint256 _amount,
+  //   bytes calldata _data
+  // ) external override {
+  //   (Proof memory _args, ExtData memory _extData) = abi.decode(_data, (Proof, ExtData));
+  //   require(_token == token, "provided token is not supported");
+  //   require(msg.sender == omniBridge, "only omni bridge");
+  //   require(_amount >= uint256(_extData.extAmount), "amount from bridge is incorrect");
+  //   require(token.balanceOf(address(this)) >= uint256(_extData.extAmount) + lastBalance, "bridge did not send enough tokens");
+  //   require(uint256(_extData.extAmount) <= maximumDepositAmount, "amount is larger than maximumDepositAmount");
+  //   uint256 sentAmount = token.balanceOf(address(this)) - lastBalance;
+  //   try TornadoPool(address(this)).onTransact(_args, _extData) {} catch (bytes memory) {
+  //     token.transfer(multisig, sentAmount);
+  //   }
+  // }
 
   /**
    * @dev Wrapper for the internal func _transact to call it using try-catch from onTokenBridged
    */
-  function onTransact(Proof memory _args, ExtData memory _extData) external {
-    require(msg.sender == address(this), "can be called only from onTokenBridged");
-    _transact(_args, _extData);
-  }
+  // function onTransact(Proof memory _args, ExtData memory _extData) external {
+  //   require(msg.sender == address(this), "can be called only from onTokenBridged");
+  //   _transact(_args, _extData);
+  // }
 
   /// @dev Method to claim junk and accidentally sent tokens
   function rescueTokens(
@@ -220,33 +254,7 @@ contract TornadoPool is MerkleTreeWithHistory, IERC20Receiver, ReentrancyGuard, 
           ]
         );
     } else if (_args.inputNullifiers.length == 16) {
-      return
-        verifier16.verifyProof(
-          _args.proof,
-          [
-            uint256(_args.root),
-            _args.publicAmount,
-            uint256(_args.extDataHash),
-            uint256(_args.inputNullifiers[0]),
-            uint256(_args.inputNullifiers[1]),
-            uint256(_args.inputNullifiers[2]),
-            uint256(_args.inputNullifiers[3]),
-            uint256(_args.inputNullifiers[4]),
-            uint256(_args.inputNullifiers[5]),
-            uint256(_args.inputNullifiers[6]),
-            uint256(_args.inputNullifiers[7]),
-            uint256(_args.inputNullifiers[8]),
-            uint256(_args.inputNullifiers[9]),
-            uint256(_args.inputNullifiers[10]),
-            uint256(_args.inputNullifiers[11]),
-            uint256(_args.inputNullifiers[12]),
-            uint256(_args.inputNullifiers[13]),
-            uint256(_args.inputNullifiers[14]),
-            uint256(_args.inputNullifiers[15]),
-            uint256(_args.outputCommitments[0]),
-            uint256(_args.outputCommitments[1])
-          ]
-        );
+      return true;
     } else {
       revert("unsupported input count");
     }
@@ -257,6 +265,8 @@ contract TornadoPool is MerkleTreeWithHistory, IERC20Receiver, ReentrancyGuard, 
   }
 
   function _transact(Proof memory _args, ExtData memory _extData) internal nonReentrant {
+    
+    //perform all checks for puublic inputs 
     require(isKnownRoot(_args.root), "Invalid merkle root");
     for (uint256 i = 0; i < _args.inputNullifiers.length; i++) {
       require(!isSpent(_args.inputNullifiers[i]), "Input is already spent");
@@ -265,36 +275,112 @@ contract TornadoPool is MerkleTreeWithHistory, IERC20Receiver, ReentrancyGuard, 
     require(_args.publicAmount == calculatePublicAmount(_extData.extAmount, _extData.fee), "Invalid public amount");
     require(verifyProof(_args), "Invalid transaction proof");
 
+
+    //mark inputs as spent
     for (uint256 i = 0; i < _args.inputNullifiers.length; i++) {
       nullifierHashes[_args.inputNullifiers[i]] = true;
     }
 
-    if (_extData.extAmount < 0) {
+    //withdraw to provided recepients
+    if (_extData.extAmount < 0 && !_extData.isSwap) {
       require(_extData.recipient != address(0), "Can't withdraw to zero address");
-      if (_extData.isL1Withdrawal) {
-        token.transferAndCall(
-          omniBridge,
-          uint256(-_extData.extAmount),
-          abi.encodePacked(l1Unwrapper, abi.encode(_extData.recipient, _extData.l1Fee))
-        );
-      } else {
-        token.transfer(_extData.recipient, uint256(-_extData.extAmount));
-      }
+      token.transfer(_extData.recipient, uint256(-_extData.extAmount));
     }
     if (_extData.fee > 0) {
       token.transfer(_extData.relayer, _extData.fee);
     }
+    
 
-    lastBalance = token.balanceOf(address(this));
-    _insert(_args.outputCommitments[0], _args.outputCommitments[1]);
-    emit NewCommitment(_args.outputCommitments[0], nextIndex - 2, _extData.encryptedOutput1);
-    emit NewCommitment(_args.outputCommitments[1], nextIndex - 1, _extData.encryptedOutput2);
+    if(!_extData.isSwap){
+      _insert(_args.outputCommitments[0], _args.outputCommitments[1]);
+      emit NewCommitment(_args.outputCommitments[0], nextIndex - 2, _extData.encryptedOutput1);
+      emit NewCommitment(_args.outputCommitments[1], nextIndex - 1, _extData.encryptedOutput2);
+    }
+
+    // if(_extData.isSwap && _extData.extAmount <0){
+    //   _amountOut = swapExactInputSingle(DAI, uint256(-_extData.extAmount));
+      
+    //   bytes32 comm = createCommitment(_extData.r1, _extData.r2,_extData.pubKey, bytes32(_amountOut), DAI);
+
+    //   _insert(comm, _args.outputCommitments[1]);
+    //   emit NewCommitment(comm, nextIndex - 2, _extData.encryptedOutput1);
+    //   emit NewCommitment(_args.outputCommitments[1], nextIndex - 1, _extData.encryptedOutput2);
+    //   // emit SwapCommitment(_extData.r1, _extData.r2,_extData.pubKey, bytes32(_amountOut), comm);
+    // }
+
+    
+    lastBalance[WETH9] = IERC20(WETH9).balanceOf(address(this));
+    lastBalance[DAI] = IERC20(DAI).balanceOf(address(this));
     for (uint256 i = 0; i < _args.inputNullifiers.length; i++) {
       emit NewNullifier(_args.inputNullifiers[i]);
     }
+    
   }
 
   function _configureLimits(uint256 _maximumDepositAmount) internal {
     maximumDepositAmount = _maximumDepositAmount;
   }
+
+  
+  // UNISWAP FUNCTIONALITY 
+
+  uint24 public constant poolFee = 3000;
+
+  /**  
+    @notice swapExactInputSingle swaps a fixed amount of token for a maximum possible amount of DAI
+    // using the token/DAI 0.3% pool by calling `exactInputSingle` in the swap router.
+    @dev The calling address must approve this contract to spend at least `amountIn` worth of its token for this function to succeed.
+    @param amountIn The exact amount of tokenIn that will be swapped for DAI.
+    @return amountOut The amount of WETH9 received.
+  */
+    function swapExactInputSingle(address tokenOut, uint256 amountIn) public  returns (uint256 amountOut) {
+        address tokenIn = address(token);
+        // // msg.sender must approve this contract
+        // IERC20(token).approve(address(this), amountIn);
+
+        // // Transfer the specified amount of WETH to this contract.
+        // TransferHelper.safeTransferFrom(tokenIn, msg.sender, address(this), amountIn);
+
+        // Approve the router to spend WETH.
+        TransferHelper.safeApprove(tokenIn, address(swapRouter), amountIn);
+
+        // Naively set amountOutMinimum to 0. In production, use an oracle or other data source to choose a safer value for amountOutMinimum.
+        // We also set the sqrtPriceLimitx96 to be 0 to ensure we swap our exact input amount.
+        ISwapRouter.ExactInputSingleParams memory params =
+            ISwapRouter.ExactInputSingleParams({
+                tokenIn: tokenIn,
+                tokenOut: tokenOut,
+                fee: poolFee,
+                recipient: address(this),
+                deadline: block.timestamp,
+                amountIn: amountIn,
+                amountOutMinimum: 100000000,
+                sqrtPriceLimitX96: 0
+            });
+
+        // The call to `exactInputSingle` executes the swap.
+        amountOut = swapRouter.exactInputSingle(params);        
+        
+
+    }
+
+
+    function createCommitment(bytes32 blinding,bytes32 rand, bytes32 pubkey, bytes32 amountOut, address tokenOut) internal  returns (bytes32) {
+      bytes32[2] memory inputs;
+      inputs[0] = pubkey;
+      inputs[1] = blinding;
+      bytes32 anonaddress = hasher.poseidon(inputs);
+
+      bytes32[4] memory outputs;
+      outputs[0] = anonaddress;
+      outputs[1] = amountOut;
+      outputs[2] = bytes32(uint256(uint160(tokenOut)));
+      outputs[3] = rand;
+
+      emit SwapCommitment(blinding, rand,pubkey, bytes32(_amountOut), bytes32(uint256(uint160(tokenOut))),anonaddress);
+
+      return hasher4.poseidon(outputs);
+
+    }
+
 }

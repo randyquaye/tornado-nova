@@ -21,6 +21,10 @@ function getExtDataHash({
   fee,
   encryptedOutput1,
   encryptedOutput2,
+  isSwap,
+  r1: r1,
+  r2: r2,
+    pubKey: pubKey,
   isL1Withdrawal,
   l1Fee,
 }) {
@@ -28,7 +32,7 @@ function getExtDataHash({
 
   const encodedData = abi.encode(
     [
-      'tuple(address recipient,int256 extAmount,address relayer,uint256 fee,bytes encryptedOutput1,bytes encryptedOutput2,bool isL1Withdrawal,uint256 l1Fee)',
+      'tuple(address recipient,int256 extAmount,address relayer,uint256 fee,bytes encryptedOutput1,bytes encryptedOutput2,bool isSwap, bytes32 r1,bytes32 r2, bytes32 pubKey, bool isL1Withdrawal,uint256 l1Fee)',
     ],
     [
       {
@@ -38,6 +42,10 @@ function getExtDataHash({
         fee: toFixedHex(fee),
         encryptedOutput1: encryptedOutput1,
         encryptedOutput2: encryptedOutput2,
+        isSwap:isSwap,
+        r1: r1,
+        r2: r2,
+        pubKey: pubKey,
         isL1Withdrawal: isL1Withdrawal,
         l1Fee: l1Fee,
       },

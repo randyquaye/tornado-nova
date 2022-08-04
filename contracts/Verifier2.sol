@@ -1,1 +1,1 @@
-../artifacts/circuits/Verifier2.sol
+../client/src/artifacts/circuits/Verifier2.sol

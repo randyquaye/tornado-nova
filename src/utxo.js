@@ -12,7 +12,7 @@ class Utxo {
    * @param {Keypair} keypair
    * @param {number|null} index UTXO index in the merkle tree
    */
-  constructor({ amount = 0, type = randomBN(), keypair = new Keypair(), blinding = randomBN(), rand = randomBN(), index = null } = {}) {
+  constructor({ amount = 0, type, keypair = new Keypair(), blinding = randomBN(), rand = randomBN(), index = null } = {}) {
     this.amount = BigNumber.from(amount)
     this.blinding = BigNumber.from(blinding)
     this.type = BigNumber.from(type) //encode ERC20 token address

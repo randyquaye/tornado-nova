@@ -30,6 +30,11 @@ async function main() {
   await hasher.deployed()
   console.log(`hasher: ${hasher.address}`)
 
+  const Hasher4 = await await ethers.getContractFactory('Hasher4')
+  const hasher4 = await Hasher4.deploy()
+  await hasher4.deployed()
+  console.log(`hasher: ${hasher.address}`)
+
   const Pool = await ethers.getContractFactory('TornadoPool')
   console.log(
     `constructor args:\n${JSON.stringify([
@@ -37,6 +42,7 @@ async function main() {
       verifier16.address,
       MERKLE_TREE_HEIGHT,
       hasher.address,
+      hasher4.address,
       token,
       omniBridge,
       l1Unwrapper,
@@ -52,6 +58,7 @@ async function main() {
     verifier16.address,
     MERKLE_TREE_HEIGHT,
     hasher.address,
+    hasher4.address,
     token,
     omniBridge,
     l1Unwrapper,

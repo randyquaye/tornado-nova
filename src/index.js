@@ -2,7 +2,7 @@
 const MerkleTree = require('fixed-merkle-tree')
 const { ethers } = require('hardhat')
 const { BigNumber } = ethers
-const { toFixedHex, poseidonHash2, getExtDataHash, FIELD_SIZE, shuffle } = require('./utils')
+const { toFixedHex, poseidonHash2, getExtDataHash, FIELD_SIZE, shuffle, randomBN } = require('./utils')
 const Utxo = require('./utxo')
 
 const { prove } = require('./prover')
@@ -11,7 +11,9 @@ const MERKLE_TREE_HEIGHT = 5
 async function buildMerkleTree({ tornadoPool }) {
   const filter = tornadoPool.filters.NewCommitment()
   const events = await tornadoPool.queryFilter(filter, 0)
-
+  // events.forEach(function (e) {
+  //   console.log(e.args.commitment)
+  // })
   const leaves = events.sort((a, b) => a.args.index - b.args.index).map((e) => toFixedHex(e.args.commitment))
   return new MerkleTree(MERKLE_TREE_HEIGHT, leaves, { hashFunction: poseidonHash2 })
 }
@@ -24,11 +26,21 @@ async function getProof({
   fee,
   recipient,
   relayer,
+  isSwap,
   isL1Withdrawal,
   l1Fee,
 }) {
+
+
+  const r1 =  randomBN()
+  const r2 =  randomBN()
+  const pubKey = inputs[0].keypair.pubkey
+
+
   inputs = shuffle(inputs)
   outputs = shuffle(outputs)
+
+  
 
   let inputMerklePathIndices = []
   let inputMerklePathElements = []
@@ -47,6 +59,9 @@ async function getProof({
     }
   }
 
+ 
+     
+ 
   const extData = {
     recipient: toFixedHex(recipient, 20),
     extAmount: toFixedHex(extAmount),
@@ -54,9 +69,15 @@ async function getProof({
     fee: toFixedHex(fee),
     encryptedOutput1: outputs[0].encrypt(),
     encryptedOutput2: outputs[1].encrypt(),
+    isSwap,
+    tokenType,
+    r1: toFixedHex(r1),
+    r2: toFixedHex(r2),
+    pubKey: toFixedHex(pubKey),
     isL1Withdrawal,
     l1Fee,
   }
+
 
   const extDataHash = getExtDataHash(extData)
   let input = {
@@ -83,7 +104,7 @@ async function getProof({
     outRand: outputs.map((x) => x.rand),
   }
 
-  const proof = await prove(input, `./artifacts/circuits/transaction${inputs.length}`)
+  const proof = await prove(input, `./client/src/artifacts/circuits/transaction${inputs.length}`)
 
   const args = {
     proof,
@@ -108,6 +129,7 @@ async function prepareTransaction({
   fee = 0,
   recipient = 0,
   relayer = 0,
+  isSwap = false,
   isL1Withdrawal = false,
   l1Fee = 0,
 }) {
@@ -135,6 +157,7 @@ async function prepareTransaction({
     fee,
     recipient,
     relayer,
+    isSwap,
     isL1Withdrawal,
     l1Fee,
   })
@@ -168,5 +191,21 @@ async function registerAndTransact({ tornadoPool, account, ...rest }) {
   })
   await receipt.wait()
 }
+
+async function swap({ tornadoPool, account, ...rest }) {
+
+  const { args, extData } = await prepareTransaction({
+    tornadoPool,
+    ...rest,
+  })
+
+  const receipt = await tornadoPool.swap(account, args, extData, {
+    gasLimit: 2e6,
+  })
+
+  await receipt.wait()
+}
+
+
 
 module.exports = { transaction, registerAndTransact, prepareTransaction, buildMerkleTree }
