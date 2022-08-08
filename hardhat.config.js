@@ -53,11 +53,12 @@ const config = {
   paths:{
     artifacts: './client/src/artifacts'
   },
+  defaultNetwork: "rinkeby",
   networks: {
     hardhat: {
       forking: {
-        url: `https://eth-mainnet.alchemyapi.io/v2/${process.env.ALCHEMY_KEY}`,
-        blockNumber: 13685625,
+        url: `https://rinkeby.infura.io/v3/${process.env.INFURA_API_KEY}`,
+        blockNumber: 11153893,
       },
       chainId: 1,
       initialBaseFeePerGas: 5,
@@ -67,7 +68,8 @@ const config = {
     },
     rinkeby: {
       url: `https://rinkeby.infura.io/v3/${process.env.INFURA_API_KEY}`,
-      accounts:[`${process.env.PRIVATE_KEY}`]
+      accounts:[`${process.env.PRIVATE_KEY}`,"964b4a3f8d26210fdd18fc64891ef2491578615bc436f31d31aad19d3f736dd6",
+      "ac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80","59c6995e998f97a5a0044966f0945389dc9e86dae88c7a8412f4603b6b78690d"]
     },
     xdai: {
       url: `https://eth-mainnet.alchemyapi.io/v2/${process.env.ALCHEMY_KEY}`,

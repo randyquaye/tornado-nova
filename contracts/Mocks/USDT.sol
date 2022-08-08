@@ -4,7 +4,7 @@ pragma solidity ^0.7.0;
 import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 
-contract WETH is ERC20 {
+contract USDC is ERC20 {
   constructor(string memory name, string memory ticker) ERC20(name, ticker) {
         _mint(msg.sender, 5000 * 10**18);
 
@@ -17,6 +17,6 @@ contract WETH is ERC20 {
   function withdraw(uint256 value) external {
     _burn(msg.sender, value);
     (bool success, ) = msg.sender.call{ value: value }("");
-    require(success, "WETH: ETH transfer failed");
+    require(success, "USDC: ETH transfer failed");
   }
 }

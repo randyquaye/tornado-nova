@@ -22,6 +22,7 @@ template Transaction(levels, nIns, nOuts, zeroLeaf) {
     // publicAmount = extAmount - fee
     signal input publicAmount;
     signal input extDataHash;
+    // signal input tokenType;
 
     // data for transaction inputs
     signal         input inputNullifier[nIns];
@@ -136,7 +137,46 @@ template Transaction(levels, nIns, nOuts, zeroLeaf) {
       }
     }
 
-    //TODO:check that all inputs and output have type equal to type in extData
+    component inTypes[nIns * (nIns - 1) / 2];
+    var Iindex = 0;
+    for (var i = 0; i < nIns - 1; i++) {
+      for (var j = i + 1; j < nIns; j++) {
+          inTypes[Iindex] = IsEqual();
+          inTypes[Iindex].in[0] <== inType[i];
+          inTypes[Iindex].in[1] <== inType[j];
+          inTypes[Iindex].out === 1;
+          Iindex++;
+      }
+    }
+
+    component outTypes[nOuts * (nOuts - 1) / 2];
+    var IindexI = 0;
+    for (var i = 0; i < nOuts - 1; i++) {
+      for (var j = i + 1; j < nOuts; j++) {
+          outTypes[IindexI] = IsEqual();
+          outTypes[IindexI].in[0] <== outType[i];
+          outTypes[IindexI].in[1] <== outType[j];
+          outTypes[IindexI].out === 1;
+          IindexI++;
+      }
+    }
+
+    component sameType;
+    sameType = IsEqual();
+    sameType.in[0] <== outType[0];
+    sameType.in[1] <== inType[0];
+    sameType.out === 1;
+
+    // component IcorrectType;
+    // IcorrectType = IsEqual();
+    // log(tokenType);
+    // log(outType[0]);
+    // IcorrectType.in[0] <== tokenType;
+    // IcorrectType.in[1] <== outType[0];
+    // IcorrectType.out === 1;
+
+
+
 
     // verify amount invariant
     sumIns + publicAmount === sumOuts;

@@ -14,6 +14,9 @@ const WETH9 = '0x1c85638e118b37167e9298c2268758e058DdfDA0'
 async function buildMerkleTree({ tornadoPool }) {
   const filter = tornadoPool.filters.NewCommitment()
   const events = await tornadoPool.queryFilter(filter, 0)
+  // events.forEach(function (e) {
+  //   console.log(e.args.commitment)
+  // })
   const leaves = events.sort((a, b) => a.args.index - b.args.index).map((e) => toFixedHex(e.args.commitment))
   return new MerkleTree(MERKLE_TREE_HEIGHT, leaves, { hashFunction: poseidonHash2 })
 }
@@ -26,12 +29,16 @@ async function getProof({
   fee,
   recipient,
   relayer,
-  tokenType,
   isSwap,
-  anonAddress,
-  rand,
-  tokenOut,
+  tokenType,
+  // isL1Withdrawal,
+  // l1Fee,
 }) {
+
+
+  // const r1 =  randomBN()
+  // const r2 =  randomBN()
+  // const pubKey = inputs[0].keypair.pubkey
 
 
   inputs = shuffle(inputs)
@@ -65,22 +72,22 @@ async function getProof({
     fee: toFixedHex(fee),
     encryptedOutput1: outputs[0].encrypt(),
     encryptedOutput2: outputs[1].encrypt(),
+    isSwap,
     tokenType: toFixedHex(tokenType, 20),
-    isSwap:isSwap,
-    anonAddress:toFixedHex(anonAddress),
-    rand:toFixedHex(rand),
-    tokenOut:toFixedHex(tokenOut,20),
+    // r1: toFixedHex(r1),
+    // r2: toFixedHex(r2),
+    // pubKey: toFixedHex(pubKey),
+    // isL1Withdrawal,
+    // l1Fee,
   }
 
+
   const extDataHash = getExtDataHash(extData)
-  
-  
   let input = {
     root: tree.root(),
     inputNullifier: inputs.map((x) => x.getNullifier()),
     outputCommitment: outputs.map((x) => x.getCommitment()),
     publicAmount: BigNumber.from(extAmount).sub(fee).add(FIELD_SIZE).mod(FIELD_SIZE).toString(),
-    // tokenType: BigNumber.from(extData.tokenType).add(FIELD_SIZE).mod(FIELD_SIZE).toString(),
     extDataHash,
 
     // data for 2 transaction inputs
@@ -100,10 +107,8 @@ async function getProof({
     outRand: outputs.map((x) => x.rand),
   }
 
-
   const proof = await prove(input, `./client/src/artifacts/circuits/transaction${inputs.length}`)
 
-  
   const args = {
     proof,
     root: toFixedHex(input.root),
@@ -111,9 +116,9 @@ async function getProof({
     outputCommitments: outputs.map((x) => toFixedHex(x.getCommitment())),
     publicAmount: toFixedHex(input.publicAmount),
     extDataHash: toFixedHex(extDataHash),
-    tokenType: toFixedHex(extData.tokenType),
   }
   // console.log('Solidity args', args)
+
   return {
     extData,
     args,
@@ -127,11 +132,10 @@ async function prepareTransaction({
   fee = 0,
   recipient = 0,
   relayer = 0,
-  tokenType,
   isSwap = false,
-  anonAddress = toFixedHex(randomBN()),
-  rand = toFixedHex(randomBN()),
-  tokenOut = 0
+  tokenType = WETH9,
+  // isL1Withdrawal = false,
+  // l1Fee = 0,
 }) {
   if (inputs.length > 2 || outputs.length > 2) {
     throw new Error('Incorrect inputs/outputs count')
@@ -157,14 +161,11 @@ async function prepareTransaction({
     fee,
     recipient,
     relayer,
-    tokenType,
     isSwap,
-    anonAddress,
-    rand,
-    tokenOut
+    tokenType
+    // isL1Withdrawal,
+    // l1Fee,
   })
-
-  
 
   return {
     args,
@@ -193,6 +194,20 @@ async function registerAndTransact({ tornadoPool, account, ...rest }) {
   const receipt = await tornadoPool.registerAndTransact(account, args, extData, {
     gasLimit: 2e6,
   })
+  await receipt.wait()
+}
+
+async function swap({ tornadoPool, account, ...rest }) {
+
+  const { args, extData } = await prepareTransaction({
+    tornadoPool,
+    ...rest,
+  })
+
+  const receipt = await tornadoPool.swap(account, args, extData, {
+    gasLimit: 2e6,
+  })
+
   await receipt.wait()
 }
 

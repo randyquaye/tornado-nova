@@ -6,6 +6,9 @@ const MERKLE_TREE_HEIGHT = 23
 const { MINIMUM_WITHDRAWAL_AMOUNT, MAXIMUM_DEPOSIT_AMOUNT } = process.env
 
 async function main() {
+
+  const [signer1] = await ethers.getSigners();
+
   require('./compileHasher')
   const govAddress = '0xBAE5aBfa98466Dbe68836763B087f2d189f4D28f'
   const omniBridge = '0x59447362798334d3485c64D1e4870Fde2DDC0d75'
@@ -15,42 +18,41 @@ async function main() {
   const l1ChainId = 56
   const multisig = '0xE3611102E23a43136a13993E3a00BAD67da19119'
 
-  const Verifier2 = await ethers.getContractFactory('Verifier2')
+  const Verifier2 = await ethers.getContractFactory('Verifier2',signer1)
   const verifier2 = await Verifier2.deploy()
   await verifier2.deployed()
   console.log(`verifier2: ${verifier2.address}`)
 
-  const Verifier16 = await ethers.getContractFactory('Verifier16')
+  const Verifier16 = await ethers.getContractFactory('Verifier16',signer1)
   const verifier16 = await Verifier16.deploy()
   await verifier16.deployed()
   console.log(`verifier16: ${verifier16.address}`)
 
-  const Hasher = await await ethers.getContractFactory('Hasher')
+  const Hasher = await await ethers.getContractFactory('Hasher', signer1)
   const hasher = await Hasher.deploy()
   await hasher.deployed()
   console.log(`hasher: ${hasher.address}`)
 
-  const Hasher4 = await await ethers.getContractFactory('Hasher4')
+  const Hasher4 = await await ethers.getContractFactory('Hasher4', signer1)
   const hasher4 = await Hasher4.deploy()
   await hasher4.deployed()
   console.log(`hasher: ${hasher.address}`)
 
-  const Pool = await ethers.getContractFactory('TornadoPool')
-  console.log(
-    `constructor args:\n${JSON.stringify([
-      verifier2.address,
-      verifier16.address,
-      MERKLE_TREE_HEIGHT,
-      hasher.address,
-      hasher4.address,
-      // omniBridge,
-      // l1Unwrapper,
-      // govAddress,
-      // l1ChainId,
-      multisig,
-    ]).slice(1, -1)}\n`,
-  )
 
+  const TokenA =  await ethers.getContractFactory('WETH')
+  const tokenA = await TokenA.deploy('WETH', 'Wrapped ETH', 'WETH')
+  await tokenA.deployed()
+  console.log(`tokenA: ${tokenA.address}`)
+
+
+  const TokenB =  await ethers.getContractFactory('USDC')
+  const tokenB = await TokenB.deploy('USDC', 'Tether', 'USDC')
+  await tokenB.deployed()
+  console.log(`tokenB: ${tokenB.address}`)
+
+
+  const Pool = await ethers.getContractFactory('TornadoPool', signer1)
+  
   //const tornadoImpl = prompt('Deploy tornado pool implementation and provide address here:\n')
   const tornadoImpl = await Pool.deploy(
     verifier2.address,
@@ -58,29 +60,48 @@ async function main() {
     MERKLE_TREE_HEIGHT,
     hasher.address,
     hasher4.address,
-    omniBridge,
-    l1Unwrapper,
-    govAddress,
-    l1ChainId,
+    // omniBridge,
+    // l1Unwrapper,
+    // govAddress,
+    // l1ChainId,
     multisig,
   )
   await tornadoImpl.deployed()
   console.log(`TornadoPool implementation address: ${tornadoImpl.address}`)
 
-  const CrossChainUpgradeableProxy = await ethers.getContractFactory('CrossChainUpgradeableProxy')
-  const proxy = await CrossChainUpgradeableProxy.deploy(tornadoImpl.address, govAddress, [], amb, l1ChainId)
-  await proxy.deployed()
-  console.log(`proxy address: ${proxy.address}`)
+  // const CrossChainUpgradeableProxy = await ethers.getContractFactory('CrossChainUpgradeableProxy')
+  // const proxy = await CrossChainUpgradeableProxy.deploy(tornadoImpl.address, govAddress, [], amb, l1ChainId)
+  // await proxy.deployed()
+  // console.log(`proxy address: ${proxy.address}`)
 
-  const tornadoPool = await Pool.attach(proxy.address)
+  // const tornadoPool = await Pool.attach(proxy.address)
 
-  await tornadoPool.initialize(
-    utils.parseEther(MINIMUM_WITHDRAWAL_AMOUNT),
+  await tornadoImpl.initialize(
+    // utils.parseEther(MINIMUM_WITHDRAWAL_AMOUNT),
     utils.parseEther(MAXIMUM_DEPOSIT_AMOUNT),
   )
-  console.log(
-    `Proxy initialized with MINIMUM_WITHDRAWAL_AMOUNT=${MINIMUM_WITHDRAWAL_AMOUNT} ETH and MAXIMUM_DEPOSIT_AMOUNT=${MAXIMUM_DEPOSIT_AMOUNT} ETH`,
+
+  await tornadoImpl.initializeTokens(
+    ethers.utils.formatBytes32String('WETH'),
+    tokenA.address
   )
+
+  await tornadoImpl.initializeTokens(
+    ethers.utils.formatBytes32String('USDC'),
+    tokenB.address
+  )
+
+  // console.log(
+  //   `Proxy initialized with MINIMUM_WITHDRAWAL_AMOUNT=${MINIMUM_WITHDRAWAL_AMOUNT} ETH and MAXIMUM_DEPOSIT_AMOUNT=${MAXIMUM_DEPOSIT_AMOUNT} ETH`,
+  // )
+
+  // const WETHFactory = await ethers.getContractFactory('WETH',signer2)
+  // const WETH = await ethers.getContractAt().deployed()
+  // await WETH.deposit({ value: utils.parseEther('3') })
+
+  // console.log(`WETH adress:${WETH.address}` )
+  console.log(`Signer 1: ${signer1.address}`)
+  // console.log(`Signer 2: ${signer2.address}`)
 }
 
 main()
