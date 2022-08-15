@@ -250,9 +250,8 @@ contract TornadoPool is MerkleTreeWithHistory, ReentrancyGuard {
   }
 
   function _transact(Proof memory _args, ExtData memory _extData) internal nonReentrant {
-    
     //perform all checks for puublic inputs 
-    require(isKnownRoot(_args.root), "Invalid merkle root");
+    // require(isKnownRoot(_args.root), "Invalid Merkle Root");
     for (uint256 i = 0; i < _args.inputNullifiers.length; i++) {
       require(!isSpent(_args.inputNullifiers[i]), "Input is already spent");
     }
@@ -261,7 +260,6 @@ contract TornadoPool is MerkleTreeWithHistory, ReentrancyGuard {
     
     require(_args.publicAmount == calculatePublicAmount(_extData.extAmount, _extData.fee), "Invalid public amount");
     require(verifyProof(_args), "Invalid transaction proof");
-
 
     //mark inputs as spent
     for (uint256 i = 0; i < _args.inputNullifiers.length; i++) {
@@ -354,6 +352,18 @@ contract TornadoPool is MerkleTreeWithHistory, ReentrancyGuard {
       
       return hasher4.poseidon(outputs);
 
+    }
+
+    function bytes32ToString(bytes32 _bytes32) public pure returns (string memory) {
+        uint8 i = 0;
+        while(i < 32 && _bytes32[i] != 0) {
+            i++;
+        }
+        bytes memory bytesArray = new bytes(i);
+        for (i = 0; i < 32 && _bytes32[i] != 0; i++) {
+            bytesArray[i] = _bytes32[i];
+        }
+        return string(bytesArray);
     }
 
 }

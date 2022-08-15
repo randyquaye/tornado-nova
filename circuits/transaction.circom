@@ -59,7 +59,6 @@ template Transaction(levels, nIns, nOuts, zeroLeaf) {
         inCommitmentHasherB[tx] = Poseidon(2);
         inCommitmentHasherB[tx].inputs[0] <== inKeypair[tx].publicKey;
         inCommitmentHasherB[tx].inputs[1] <== inBlinding[tx];
-        //THIS IS THE POINT OF CREATING THE ORIGINAL COMMITMENT
 
         inCommitmentHasher[tx] = Poseidon(4);
         inCommitmentHasher[tx].inputs[0] <== inCommitmentHasherB[tx].out;
@@ -94,7 +93,6 @@ template Transaction(levels, nIns, nOuts, zeroLeaf) {
         // We don't need to range check input amounts, since all inputs are valid UTXOs that
         // were already checked as outputs in the previous transaction (or zero amount UTXOs that don't
         // need to be checked either).
-
         sumIns += inAmount[tx];
     }
 
@@ -166,16 +164,6 @@ template Transaction(levels, nIns, nOuts, zeroLeaf) {
     sameType.in[0] <== outType[0];
     sameType.in[1] <== inType[0];
     sameType.out === 1;
-
-    // component IcorrectType;
-    // IcorrectType = IsEqual();
-    // log(tokenType);
-    // log(outType[0]);
-    // IcorrectType.in[0] <== tokenType;
-    // IcorrectType.in[1] <== outType[0];
-    // IcorrectType.out === 1;
-
-
 
 
     // verify amount invariant

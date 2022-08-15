@@ -2,11 +2,15 @@ import './App.css';
 import { ethers } from 'ethers';
 import { useEffect, useState } from 'react';
 import Modal from './Modal.js';
+import *  as crypto from 'crypto-browserify';
 
+import {Utxo}  from './tornado/utxo'
+import {Keypair} from './tornado/keypair'
+import {prepareTransaction} from './tornado/index';
 
 import tornadoArtifact from './artifacts/contracts/TornadoPool.sol/TornadoPool.json';
 import WETHArtifact from './WETH.json';
-import USDCArtifact from './DAI.json';
+import USDCArtifact from './USDC.json';
 
 function App() {
   const [provider, setProvider] = useState(undefined);
@@ -33,7 +37,7 @@ function App() {
       const provider = await new ethers.providers.Web3Provider(window.ethereum)
       setProvider(provider)
 
-      const tornadoContract = await new ethers.Contract("0x60A465F97d07860Ab6Baa879d3CfCE851A7aCA81", tornadoArtifact.abi)
+      const tornadoContract = await new ethers.Contract("0x2ef34D9c2F346f3154e0CdFfD8499D6Dfe9F8e13", tornadoArtifact.abi)
       setTornadoContract(tornadoContract)
 
       tornadoContract.connect(provider).getSymbols()
@@ -45,6 +49,8 @@ function App() {
     }
     init();
   }, [])
+
+  const randomBN = (nbytes = 31) => ethers.BigNumber.from(crypto.randomBytes(nbytes))
 
   const getTokenContract = async (symbol, tornadoContract, provider) => {
     const address = await tornadoContract.connect(provider).getTokenAddress( toBytes32(symbol) )
@@ -109,11 +115,25 @@ function App() {
       const tokenContract = tokenContracts[ symbol ]
       tokenContract.connect(signer).approve(tornadoContract.address, wei)
         .then(() => {
-          // const aliceKeypair = new Keypair() // contains private and public keys
-          // const aliceDepositAmount = utils.parseEther('0.1')
-          // const aliceDepositUtxo = new Utxo({ amount: aliceDepositAmount, keypair:aliceKeypair, type: tokenContract.address})
-          // transaction({ tornadoPool, outputs: [aliceDepositUtxo] })
-          // tornadoContract.connect(signer).depositTokens(wei, toBytes32(symbol));
+          const aliceKeypair = new Keypair() // contains private and public keys
+          console.log(aliceKeypair.privkey)
+          const aliceDepositUtxo = new Utxo({ amount: wei, keypair:aliceKeypair, type: tokenContract.address})
+          prepareTransaction({
+            tornadoPool:tornadoContract, 
+            outputs: [aliceDepositUtxo],
+            tokenType:tokenContract.address
+          }).then((_transaction)=>{
+            console.log(_transaction.args.root)
+            tornadoContract.connect(signer).transact(_transaction.args, _transaction.extData, {
+              gasLimit: 3e6,
+            }).then((receipt)=>{
+              receipt.wait()
+            })
+          }
+
+          )
+        
+        
         })
     }
   }

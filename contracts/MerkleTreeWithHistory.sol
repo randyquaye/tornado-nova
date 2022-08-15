@@ -54,8 +54,9 @@ contract MerkleTreeWithHistory is Initializable {
     for (uint32 i = 0; i < levels; i++) {
       filledSubtrees[i] = zeros(i);
     }
-
+    
     roots[0] = zeros(levels);
+    
   }
 
   /**

@@ -36,19 +36,19 @@ async function main() {
   const Hasher4 = await await ethers.getContractFactory('Hasher4', signer1)
   const hasher4 = await Hasher4.deploy()
   await hasher4.deployed()
-  console.log(`hasher: ${hasher.address}`)
+  console.log(`hasher4: ${hasher.address}`)
 
 
-  const TokenA =  await ethers.getContractFactory('WETH')
-  const tokenA = await TokenA.deploy('WETH', 'Wrapped ETH', 'WETH')
-  await tokenA.deployed()
-  console.log(`tokenA: ${tokenA.address}`)
+  // const TokenA =  await ethers.getContractFactory('WETH')
+  // const tokenA = await TokenA.deploy('WETH', 'Wrapped ETH', 'WETH')
+  // await tokenA.deployed()
+  // console.log(`tokenA: ${tokenA.address}`)
 
 
-  const TokenB =  await ethers.getContractFactory('USDC')
-  const tokenB = await TokenB.deploy('USDC', 'Tether', 'USDC')
-  await tokenB.deployed()
-  console.log(`tokenB: ${tokenB.address}`)
+  // const TokenB =  await ethers.getContractFactory('USDC')
+  // const tokenB = await TokenB.deploy('USDC', 'Tether', 'USDC')
+  // await tokenB.deployed()
+  // console.log(`tokenB: ${tokenB.address}`)
 
 
   const Pool = await ethers.getContractFactory('TornadoPool', signer1)
@@ -81,15 +81,17 @@ async function main() {
     utils.parseEther(MAXIMUM_DEPOSIT_AMOUNT),
   )
 
-  await tornadoImpl.initializeTokens(
-    ethers.utils.formatBytes32String('WETH'),
-    tokenA.address
-  )
+  const USDC = "0xeb8f08a975Ab53E34D8a0330E0D34de942C95926"
+  const WETH = "0xc778417E063141139Fce010982780140Aa0cD5Ab"
+    await tornadoImpl.initializeTokens(
+      ethers.utils.formatBytes32String('WETH'),
+      WETH
+    )
 
-  await tornadoImpl.initializeTokens(
-    ethers.utils.formatBytes32String('USDC'),
-    tokenB.address
-  )
+    await tornadoImpl.initializeTokens(
+      ethers.utils.formatBytes32String('USDC'),
+      USDC
+    )
 
   // console.log(
   //   `Proxy initialized with MINIMUM_WITHDRAWAL_AMOUNT=${MINIMUM_WITHDRAWAL_AMOUNT} ETH and MAXIMUM_DEPOSIT_AMOUNT=${MAXIMUM_DEPOSIT_AMOUNT} ETH`,

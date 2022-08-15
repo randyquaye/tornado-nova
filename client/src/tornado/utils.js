@@ -1,28 +1,31 @@
 /* global network */
-const crypto = require('crypto')
-const { ethers } = require('hardhat')
+import { ethers } from 'ethers'
+const crypto = require('crypto-browserify')
 const BigNumber = ethers.BigNumber
 const { poseidon } = require('circomlib')
 
-const poseidonHash = (items) => BigNumber.from(poseidon(items).toString())
-const poseidonHash2 = (a, b) => poseidonHash([a, b])
+export const poseidonHash = (items) => BigNumber.from(poseidon(items).toString())
+export const poseidonHash2 = (a, b) => poseidonHash([a, b])
 
-const FIELD_SIZE = BigNumber.from(
+export const FIELD_SIZE = BigNumber.from(
   '21888242871839275222246405745257275088548364400416034343698204186575808495617',
 )
 
 /** Generate random number of specified byte length */
-const randomBN = (nbytes = 31) => BigNumber.from(crypto.randomBytes(nbytes))
+export const randomBN = (nbytes = 31) => BigNumber.from(crypto.randomBytes(nbytes))
 
-function getExtDataHash({
+export function getExtDataHash({
   recipient,
   extAmount,
   relayer,
   fee,
   encryptedOutput1,
   encryptedOutput2,
-  isSwap,
   tokenType,
+  isSwap,
+  anonAddress,
+  rand,
+  tokenOut
   // r1: r1,
   // r2: r2,
   //   pubKey: pubKey,
@@ -35,7 +38,7 @@ function getExtDataHash({
   
   const encodedData = abi.encode(
     [
-      'tuple(address recipient,int256 extAmount,address relayer,uint256 fee,bytes encryptedOutput1,bytes encryptedOutput2,bool isSwap, address tokenType)',
+      'tuple(address recipient,int256 extAmount,address relayer,uint256 fee,bytes encryptedOutput1,bytes encryptedOutput2,address tokenType,bool isSwap,bytes32 anonAddress,bytes32 rand,address tokenOut)',
     ],
     [
       {
@@ -45,13 +48,11 @@ function getExtDataHash({
         fee: toFixedHex(fee),
         encryptedOutput1: encryptedOutput1,
         encryptedOutput2: encryptedOutput2,
+        tokenType: tokenType,
         isSwap:isSwap,
-        tokenType:tokenType,
-        // r1: r1,
-        // r2: r2,
-        // pubKey: pubKey,
-        // isL1Withdrawal: isL1Withdrawal,
-        // l1Fee: l1Fee,
+        anonAddress:anonAddress,
+        rand:rand,
+        tokenOut:tokenOut
       },
     ],
   )
@@ -60,7 +61,7 @@ function getExtDataHash({
 }
 
 /** BigNumber to hex string of specified length */
-function toFixedHex(number, length = 32) {
+export function toFixedHex(number, length = 32) {
   let result =
     '0x' +
     (number instanceof Buffer
@@ -74,7 +75,7 @@ function toFixedHex(number, length = 32) {
 }
 
 /** Convert value into buffer of specified byte length */
-const toBuffer = (value, length) =>
+export const toBuffer = (value, length) =>
   Buffer.from(
     BigNumber.from(value)
       .toHexString()
@@ -83,7 +84,7 @@ const toBuffer = (value, length) =>
     'hex',
   )
 
-function shuffle(array) {
+export function shuffle(array) {
   let currentIndex = array.length
   let randomIndex
 
@@ -100,23 +101,13 @@ function shuffle(array) {
   return array
 }
 
-async function getSignerFromAddress(address) {
-  await network.provider.request({
-    method: 'hardhat_impersonateAccount',
-    params: [address],
-  })
+// async function getSignerFromAddress(address) {
+//   await network.provider.request({
+//     method: 'hardhat_impersonateAccount',
+//     params: [address],
+//   })
 
-  return await ethers.provider.getSigner(address)
-}
+//   return await ethers.provider.getSigner(address)
+// }
 
-module.exports = {
-  FIELD_SIZE,
-  randomBN,
-  toFixedHex,
-  toBuffer,
-  poseidonHash,
-  poseidonHash2,
-  getExtDataHash,
-  shuffle,
-  getSignerFromAddress,
-}
+

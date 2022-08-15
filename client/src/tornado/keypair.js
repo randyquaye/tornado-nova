@@ -1,5 +1,6 @@
+import { ethers } from 'ethers'
 const { encrypt, decrypt, getEncryptionPublicKey } = require('eth-sig-util')
-const { ethers } = require('hardhat')
+
 const { BigNumber } = ethers
 const { poseidonHash, toFixedHex } = require('./utils')
 
@@ -33,7 +34,7 @@ function unpackEncryptedMessage(encryptedMessage) {
   }
 }
 
-class Keypair {
+export class Keypair {
   /**
    * Initialize a new keypair. Generates a random private key if not defined
    *
@@ -112,8 +113,6 @@ class Keypair {
   }
 }
 
-module.exports = {
-  Keypair,
-  packEncryptedMessage,
-  unpackEncryptedMessage,
-}
+
+
+

@@ -12,10 +12,6 @@ const { encodeDataForBridge } = require('./utils')
 const config = require('../config')
 const { generate } = require('../src/0_generateAddresses')
 const { BigNumber } = require('ethers')
-// const { abi: SwapRouter } = require('@uniswap/v3-periphery/artifacts/contracts/SwapRouter.sol/SwapRouter.json')
-
-// const { WETHArtifact } = require('./WETH.json');
-// const { USDCArtifact } = require('./USDC.json');
 
 const MERKLE_TREE_HEIGHT = 5
 const l1ChainId = 1
@@ -45,8 +41,6 @@ describe('TornadoPool', function () {
     const hasher = await deploy('Hasher')
     const hasher4 = await deploy('Hasher4')
 
-    
-
     const path = require('path')
     const fs = require('fs');
     
@@ -54,7 +48,7 @@ describe('TornadoPool', function () {
     const parsed= JSON.parse(fs.readFileSync(jsonFile));
     const abi = parsed.abi;
     const _swapRouter  = new ethers.Contract(SWAPROUTER,abi, provider)
-    const swapRouter = await _swapRouter.deployed()
+    await _swapRouter.deployed()
 
     const WETHJson = path.join(__dirname, 'WETH.json')
     const WETHparsed= JSON.parse(fs.readFileSync(WETHJson));
