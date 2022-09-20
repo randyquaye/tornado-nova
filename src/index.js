@@ -8,9 +8,6 @@ const Utxo = require('./utxo')
 const { prove } = require('./prover')
 const MERKLE_TREE_HEIGHT = 5
 
-const DAI = '0x6B175474E89094C44Da98b954EedeAC495271d0F'
-const WETH9 = '0x1c85638e118b37167e9298c2268758e058DdfDA0'
-
 async function buildMerkleTree({ tornadoPool }) {
   const filter = tornadoPool.filters.NewCommitment()
   const events = await tornadoPool.queryFilter(filter, 0)
@@ -18,6 +15,7 @@ async function buildMerkleTree({ tornadoPool }) {
   return new MerkleTree(MERKLE_TREE_HEIGHT, leaves, { hashFunction: poseidonHash2 })
 }
 
+//modified to generate proof taking in new inputs and transaction data
 async function getProof({
   inputs,
   outputs,
@@ -116,6 +114,9 @@ async function getProof({
   }
 }
 
+
+//Modified to restrict transaction inputs number
+//and to add new transaction associated data
 async function prepareTransaction({
   tornadoPool,
   inputs = [],
@@ -177,7 +178,6 @@ async function transaction({ tornadoPool, ...rest }) {
   const receipt = await tornadoPool.transact(args, extData, {
     gasLimit: 2e6,
   })
-
 
   return await receipt.wait()
 }

@@ -2,23 +2,16 @@
 const hre = require('hardhat')
 const { ethers, waffle } = hre
 const { loadFixture } = waffle
-const { expect, util } = require('chai')
 const { utils } = ethers
 const Utxo = require('../src/utxo')
-const { transaction, registerAndTransact, prepareTransaction, buildMerkleTree } = require('../src/index')
-const { toFixedHex, poseidonHash,poseidonHash2,randomBN } = require('../src/utils')
+const { transaction} = require('../src/index')
+const { poseidonHash,randomBN } = require('../src/utils')
 const { Keypair } = require('../src/keypair')
-const { encodeDataForBridge } = require('./utils')
-const config = require('../config')
-const { generate } = require('../src/0_generateAddresses')
 const { BigNumber } = require('ethers')
-
 const MERKLE_TREE_HEIGHT = 5
-const l1ChainId = 1
 const MAXIMUM_DEPOSIT_AMOUNT = utils.parseEther(process.env.MAXIMUM_DEPOSIT_AMOUNT || '1')
 
 const provider = new ethers.providers.WebSocketProvider('wss://rinkeby.infura.io/ws/v3/234c85e0ec6944a9825e84f1ea01ddd0')
-
 
 const USDC = "0xeb8f08a975Ab53E34D8a0330E0D34de942C95926"
 const WETH = "0xc778417E063141139Fce010982780140Aa0cD5Ab"
@@ -33,8 +26,12 @@ describe('TornadoPool', function () {
     return instance.deployed()
   }
 
+  //sets up the state of the block chain network, deploying the
+  //contracts required for the protocol to work
   async function fixture() {
     require('../scripts/compileHasher')
+    
+    //setup sender for transaction (one of Alice's EOA)
     const [sender, gov, multisig] = await ethers.getSigners()
     const verifier2 = await deploy('Verifier2')
     const verifier16 = await deploy('Verifier16')
@@ -43,21 +40,22 @@ describe('TornadoPool', function () {
 
     const path = require('path')
     const fs = require('fs');
-    
+
+    //deploy Uniswap Router
     const jsonFile = path.join(__dirname, 'SwapRouter.json')
     const parsed= JSON.parse(fs.readFileSync(jsonFile));
     const abi = parsed.abi;
     const _swapRouter  = new ethers.Contract(SWAPROUTER,abi, provider)
     await _swapRouter.deployed()
 
+    //deploy WETH tokencontract
     const WETHJson = path.join(__dirname, 'WETH.json')
     const WETHparsed= JSON.parse(fs.readFileSync(WETHJson));
     const WETHabi = WETHparsed.abi;
     const _WETHContract  = new ethers.Contract(WETH,WETHabi, provider)
     const WETHContract = await _WETHContract.deployed()
-    // await WETHContract.connect(sender).deposit(sender.address, utils.parseEther('10000'))
 
-
+    //deploy USDC token contract
     const USDCJson = path.join(__dirname, 'USDC.json')
     const USDCparsed= JSON.parse(fs.readFileSync(USDCJson));
     const USDCabi = USDCparsed.abi;
@@ -65,7 +63,7 @@ describe('TornadoPool', function () {
     const USDCContract = await _USDCContract.deployed()
 
 
-
+    //deploy new contract
     /** @type {TornadoPool} */
     const tornadoPool = await deploy(
       'TornadoPool',
@@ -78,6 +76,8 @@ describe('TornadoPool', function () {
     )
     
 
+    //initialise WETH and USDC tokens to be supported by contracts
+
     await tornadoPool.initialize(MAXIMUM_DEPOSIT_AMOUNT)
     await tornadoPool.initializeTokens(
       ethers.utils.formatBytes32String('WETH'),
@@ -89,8 +89,7 @@ describe('TornadoPool', function () {
       USDCContract.address
     )
     
-
-
+    //approve both token contracr to allow sender to spend tokens
     await WETHContract.connect(sender).approve(tornadoPool.address, utils.parseEther('10000'))
     await USDCContract.connect(sender).approve(tornadoPool.address, utils.parseEther('10000'))
 
@@ -98,70 +97,70 @@ describe('TornadoPool', function () {
     return { tornadoPool,WETHContract, USDCContract }
   }
 
-  // it('should deposit multiple tokens', async function () {
-  //   const { tornadoPool, WETHContract, USDCContract } = await loadFixture(fixture)
+  it('should deposit multiple tokens', async function () {
+    const { tornadoPool, WETHContract, USDCContract } = await loadFixture(fixture)
     
-  //   console.log("\n\nWETH Deposit Performed")
-  //   // // Alice deposits WETH into tornado pool
-  //   const aliceKeypair = new Keypair() // contains private and public keys
-  //   const aliceDepositAmount = utils.parseEther('0.5')
-  //   const aliceDepositUtxoA = new Utxo({ amount: aliceDepositAmount, keypair:aliceKeypair, type: WETHContract.address })
-  //   const receipt = await transaction({ tornadoPool, outputs: [aliceDepositUtxoA], tokenType:WETHContract.address })
-  //   console.log("gas:", receipt.gasUsed)
+    console.log("\n\nWETH Deposit Performed")
+    // // Alice deposits WETH into tornado pool
+    const aliceKeypair = new Keypair() // contains private and public keys
+    const aliceDepositAmount = utils.parseEther('0.5')
+    const aliceDepositUtxoA = new Utxo({ amount: aliceDepositAmount, keypair:aliceKeypair, type: WETHContract.address })
+    const receipt = await transaction({ tornadoPool, outputs: [aliceDepositUtxoA], tokenType:WETHContract.address })
+    console.log("gas:", receipt.gasUsed)
 
-  //   console.log("\n\nUSDC Deposit Performed")
-  //   // Alice deposits USDC into tornado pool
-  //   const aliceDepositUtxoB = new Utxo({ amount: aliceDepositAmount, keypair:aliceKeypair, type: USDCContract.address })
-  //   await transaction({ tornadoPool, outputs: [aliceDepositUtxoB], tokenType:USDCContract.address })
+    console.log("\n\nUSDC Deposit Performed")
+    // Alice deposits USDC into tornado pool
+    const aliceDepositUtxoB = new Utxo({ amount: aliceDepositAmount, keypair:aliceKeypair, type: USDCContract.address })
+    await transaction({ tornadoPool, outputs: [aliceDepositUtxoB], tokenType:USDCContract.address })
 
-  // })
+  })
 
 
-  // it('should deposit and withdraw multiple tokens', async function () {
-  //   const { tornadoPool, WETHContract, USDCContract } = await loadFixture(fixture)
+  it('should deposit and withdraw multiple tokens', async function () {
+    const { tornadoPool, WETHContract, USDCContract } = await loadFixture(fixture)
     
-  //   console.log("\n\nWETH Deposit Performed")
-  //   // Alice deposits tokenA into tornado pool
-  //   const aliceKeypair = new Keypair() // contains private and public keys
-  //   const aliceDepositAmount = utils.parseEther('0.5')
-  //   const aliceDepositUtxoA = new Utxo({ 
-  //     amount: aliceDepositAmount, 
-  //     keypair:aliceKeypair, 
-  //     type: WETHContract.address })
-  //   await transaction({ 
-  //     tornadoPool, outputs: [aliceDepositUtxoA], 
-  //     tokenType:WETHContract.address })
+    console.log("\n\nWETH Deposit Performed")
+    // Alice deposits tokenA into tornado pool
+    const aliceKeypair = new Keypair() // contains private and public keys
+    const aliceDepositAmount = utils.parseEther('0.5')
+    const aliceDepositUtxoA = new Utxo({ 
+      amount: aliceDepositAmount, 
+      keypair:aliceKeypair, 
+      type: WETHContract.address })
+    await transaction({ 
+      tornadoPool, outputs: [aliceDepositUtxoA], 
+      tokenType:WETHContract.address })
     
-  //   console.log("\nUSDC Deposit Performed")
-  //   // Alice deposits tokenB into tornado pool
-  //   const aliceDepositUtxoB = new Utxo({ 
-  //     amount: aliceDepositAmount, 
-  //     keypair:aliceKeypair, 
-  //     type: USDCContract.address })
-  //   await transaction({ tornadoPool, 
-  //     outputs: [aliceDepositUtxoB], 
-  //     tokenType:USDCContract.address })
+    console.log("\nUSDC Deposit Performed")
+    // Alice deposits tokenB into tornado pool
+    const aliceDepositUtxoB = new Utxo({ 
+      amount: aliceDepositAmount, 
+      keypair:aliceKeypair, 
+      type: USDCContract.address })
+    await transaction({ tornadoPool, 
+      outputs: [aliceDepositUtxoB], 
+      tokenType:USDCContract.address })
 
-  //   console.log("\nWETH Withdrawal of 0.3 Performed")
-  //   const aliceEthAdress = '0x23618e81E3f5cdF7f54C3d65f7FBc0aBf5B21E8f'
-  //   const aliceWithdrawAmount = utils.parseEther('0.3')
-  //   const aliceChangeUtxo =  new Utxo({ 
-  //     amount: aliceDepositAmount.sub(aliceWithdrawAmount), 
-  //     keypair:aliceKeypair, type: WETHContract.address })
-  //   await transaction({ tornadoPool, 
-  //     inputs:[aliceDepositUtxoA], outputs:[aliceChangeUtxo], 
-  //     recipient: aliceEthAdress, tokenType:WETHContract.address })
+    console.log("\nWETH Withdrawal of 0.3 Performed")
+    const aliceEthAdress = '0x23618e81E3f5cdF7f54C3d65f7FBc0aBf5B21E8f'
+    const aliceWithdrawAmount = utils.parseEther('0.3')
+    const aliceChangeUtxo =  new Utxo({ 
+      amount: aliceDepositAmount.sub(aliceWithdrawAmount), 
+      keypair:aliceKeypair, type: WETHContract.address })
+    await transaction({ tornadoPool, 
+      inputs:[aliceDepositUtxoA], outputs:[aliceChangeUtxo], 
+      recipient: aliceEthAdress, tokenType:WETHContract.address })
 
-  //   console.log("\nUSDC Withdrawal of 0.1 Performed")
-  //   const aliceWithdrawAmountB = utils.parseEther('0.1')
-  //   const aliceChangeUtxoB =  new Utxo({ 
-  //     amount: aliceDepositAmount.sub(aliceWithdrawAmountB), 
-  //     keypair:aliceKeypair, type: USDCContract.address })
-  //   await transaction({ tornadoPool, 
-  //     inputs:[aliceDepositUtxoB], outputs:[aliceChangeUtxoB], 
-  //     recipient: aliceEthAdress, tokenType:USDCContract.address })
+    console.log("\nUSDC Withdrawal of 0.1 Performed")
+    const aliceWithdrawAmountB = utils.parseEther('0.1')
+    const aliceChangeUtxoB =  new Utxo({ 
+      amount: aliceDepositAmount.sub(aliceWithdrawAmountB), 
+      keypair:aliceKeypair, type: USDCContract.address })
+    await transaction({ tornadoPool, 
+      inputs:[aliceDepositUtxoB], outputs:[aliceChangeUtxoB], 
+      recipient: aliceEthAdress, tokenType:USDCContract.address })
   
-  // })
+  })
 
   it('should deposit, swap, transfer, and withdraw', async function () {
     const { tornadoPool, WETHContract, USDCContract } = await loadFixture(fixture)

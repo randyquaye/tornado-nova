@@ -38,18 +38,13 @@ contract TornadoPool is MerkleTreeWithHistory, ReentrancyGuard {
   address public constant USDC = 0xeb8f08a975Ab53E34D8a0330E0D34de942C95926;
   address public constant WETH = 0xc778417E063141139Fce010982780140Aa0cD5Ab;
 
-  
-
+  //added Uniswap Router to perform swap internally
   ISwapRouter public constant swapRouter = ISwapRouter(0xE592427A0AEce92De3Edee1F18E0157C05861564);
   IVerifier public immutable verifier2;
   IVerifier public immutable verifier16;
-  
-  // address public immutable omniBridge;
-  // address public immutable l1Unwrapper;
+
   address public immutable multisig;
   
-  // uint256 private _amountOut; //for swaps
-
   mapping(address => uint256) public lastBalance; 
   uint256 public __gap; // storage padding to prevent storage collision
   uint256 public maximumDepositAmount;
@@ -57,6 +52,7 @@ contract TornadoPool is MerkleTreeWithHistory, ReentrancyGuard {
   bytes32[] public tokenSymbols;
   mapping(bytes32 => address) public supportedTokens;
   mapping(address => bool) public isSupportedToken;
+
 
 
   struct SwapData{
@@ -111,7 +107,7 @@ contract TornadoPool is MerkleTreeWithHistory, ReentrancyGuard {
     @param _verifier16 the address of SNARK verifier for 16 inputs
     @param _levels hight of the commitments merkle tree
     @param _hasher hasher address for the merkle tree
-    @param _hasher4 4 input hasher
+    @param _hasher4 4 input hasher for commitment generation
     @param _multisig multisig on L2
     
   */
