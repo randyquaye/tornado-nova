@@ -10,6 +10,7 @@ task('hasher', 'Compile Poseidon hasher', () => {
 })
 
 const config = {
+ 
   solidity: {
     compilers: [
       {
@@ -58,7 +59,7 @@ const config = {
     hardhat: {
       forking: {
         url: `https://rinkeby.infura.io/v3/${process.env.INFURA_API_KEY}`,
-        blockNumber: 11153893,
+        blockNumber: 11402718,
       },
       chainId: 1,
       initialBaseFeePerGas: 5,

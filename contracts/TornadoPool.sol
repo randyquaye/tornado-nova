@@ -276,11 +276,14 @@ contract TornadoPool is MerkleTreeWithHistory, ReentrancyGuard {
     }
     
 
+
     if(!_extData.isSwap){
       _insert(_args.outputCommitments[0], _args.outputCommitments[1]);
       emit NewCommitment(_args.outputCommitments[0], nextIndex - 2, _extData.encryptedOutput1);
       emit NewCommitment(_args.outputCommitments[1], nextIndex - 1, _extData.encryptedOutput2);
     }
+
+    //transact swaps
 
     if(_extData.isSwap && _extData.extAmount <0){
       uint256 _amountOut = swapExactInputSingle(USDC,WETH, uint256(-_extData.extAmount));
@@ -352,6 +355,8 @@ contract TornadoPool is MerkleTreeWithHistory, ReentrancyGuard {
       
     }
 
+
+    //create commitments to be inserted into the merkle tree after a swap
 
     function createCommitment(bytes32 anonAddress, bytes32 amountOut, address tokenOut, bytes32 rand) internal view  returns (bytes32) {
       
