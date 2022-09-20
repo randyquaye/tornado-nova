@@ -54,10 +54,6 @@ async function getProof({
       inputMerklePathElements.push(new Array(tree.levels).fill(0))
     }
   }
-
- 
-     
- 
   const extData = {
     recipient: toFixedHex(recipient, 20),
     extAmount: toFixedHex(extAmount),
@@ -178,25 +174,13 @@ async function transaction({ tornadoPool, ...rest }) {
     ...rest,
   })
 
-
   const receipt = await tornadoPool.transact(args, extData, {
     gasLimit: 2e6,
   })
+
+
   return await receipt.wait()
 }
 
-async function registerAndTransact({ tornadoPool, account, ...rest }) {
-  const { args, extData } = await prepareTransaction({
-    tornadoPool,
-    ...rest,
-  })
 
-  const receipt = await tornadoPool.registerAndTransact(account, args, extData, {
-    gasLimit: 2e6,
-  })
-  await receipt.wait()
-}
-
-
-
-module.exports = { transaction, registerAndTransact, prepareTransaction, buildMerkleTree }
+module.exports = { transaction, prepareTransaction, buildMerkleTree }

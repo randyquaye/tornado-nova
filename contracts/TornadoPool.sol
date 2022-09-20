@@ -251,7 +251,7 @@ contract TornadoPool is MerkleTreeWithHistory, ReentrancyGuard {
 
   function _transact(Proof memory _args, ExtData memory _extData) internal nonReentrant {
     //perform all checks for puublic inputs 
-    // require(isKnownRoot(_args.root), "Invalid Merkle Root");
+    require(isKnownRoot(_args.root), "Invalid Merkle Root");
     for (uint256 i = 0; i < _args.inputNullifiers.length; i++) {
       require(!isSpent(_args.inputNullifiers[i]), "Input is already spent");
     }
@@ -297,6 +297,17 @@ contract TornadoPool is MerkleTreeWithHistory, ReentrancyGuard {
     for (uint256 i = 0; i < _args.inputNullifiers.length; i++) {
       emit NewNullifier(_args.inputNullifiers[i]);
     }
+
+
+    //uncomment for testing
+    // uint256 decimalWETH = 10**12 ;//17
+    // uint256 decimalUSDC = 10**5;
+
+    // console.log("Contract WETH Balance(e-5):", IERC20(WETH).balanceOf(address(this))/decimalWETH);
+    // console.log("Contract USDC Balance(e1):", IERC20(USDC).balanceOf(address(this))/decimalUSDC);
+    // console.log("Alice USDC Balance(e1):", IERC20(USDC).balanceOf(address(0x23618e81E3f5cdF7f54C3d65f7FBc0aBf5B21E8f))/decimalUSDC);
+    // console.log("Bob WETH Balance(e-5):", IERC20(WETH).balanceOf(address(0xFABB0ac9d68B0B445fB7357272Ff202C5651694a))/decimalWETH);
+
     
   }
 
@@ -319,7 +330,7 @@ contract TornadoPool is MerkleTreeWithHistory, ReentrancyGuard {
     function swapExactInputSingle(address tokenIn, address tokenOut, uint256 amountIn) public  returns (uint256 amountOut) {
         
 
-        // Approve the router to spend WETH.
+        // Approve the router to spend tokenIn.
         TransferHelper.safeApprove(tokenIn, address(swapRouter), amountIn);
 
         // Naively set amountOutMinimum to 0. In production, use an oracle or other data source to choose a safer value for amountOutMinimum.
